@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>サポート・お問い合わせ - 部室予約システム</title>
+    <style>
+        body.modal-open { overflow: hidden; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; margin: 0; padding: 20px; color: #333; }
+        
+        /* ヘッダーのCSSは Component.js に移動したため削除しました */
+        
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto 20px; }
+        
+        .btn { padding: 12px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1em; transition: 0.2s; text-align: center; display: inline-block; box-sizing: border-box; }
+        .btn-submit { background-color: #4A90E2; color: white; width: 100%; margin-top: 10px; }
+        .btn-submit:hover { background-color: #357abd; }
+        .btn-submit:disabled { background-color: #ccc; cursor: not-allowed; }
+        .btn-manual { background-color: #4caf50; color: white; width: 100%; margin-bottom: 10px; text-decoration: none; }
+        .btn-manual:hover { background-color: #388e3c; }
+
+        .section-title { margin-top: 0; font-size: 1.2em; border-left: 5px solid #4A90E2; padding-left: 8px; margin-bottom: 15px;}
+        
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 0.9em; }
+        select, input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em; font-family: inherit; }
+        textarea { resize: vertical; min-height: 120px; }
+        /* 読み取り専用（ID部分）のスタイル */
+        input[readonly] { background-color: #e8f4f8; color: #555; border: 1px solid #b3d4fc; cursor: not-allowed; }
+        
+        /* マニュアルへの誘導カード */
+        .manual-card { background: #e8f5e9; border: 1px solid #81c784; padding: 15px; border-radius: 8px; margin-bottom: 30px; text-align: center; }
+        .manual-card p { font-size: 0.9em; color: #2e7d32; margin-top: 0; margin-bottom: 15px; line-height: 1.5;}
+
+        /* ▼ カスタムモーダルのスタイル ▼ */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            width: 320px;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            animation: fadeIn 0.2s ease-out;
+            border-top: 5px solid #4A90E2;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .confirm-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .confirm-actions .btn { flex: 1; padding: 12px; }
+        .btn-modal-cancel { background-color: #999; color: white; }
+        .btn-modal-cancel:hover { background-color: #888; }
+        .btn-modal-confirm { background-color: #4A90E2; color: white; }
+        .btn-modal-confirm:hover { background-color: #357abd; }
+    </style>
+</head>
+<body>
+
+    <!-- ヘッダー部分は Component.js で生成するため削除しました -->
+
+    <div class="container">
+        <!-- マニュアルへのリンクエリア -->
+        <div class="manual-card">
+            <h2 style="margin-top: 0; color: #2e7d32; font-size: 1.2em;">📖 まずは使い方を確認</h2>
+            <p>システムの詳しい使い方や、よくある質問はマニュアルにまとめています。<br>お問い合わせの前に一度ご確認ください。</p>
+            <!-- ▼ 変更：hrefを空にし、idを付与。JSでURLをセットします -->
+            <a href="#" target="_blank" class="btn btn-manual" id="manual-link">読込中...</a>
+        </div>
+
+        <h2 class="section-title">✉️ 管理者へのお問い合わせ</h2>
+        <p style="font-size: 0.85em; color: #666; line-height: 1.5; margin-bottom: 20px;">
+            マニュアルを見ても解決しない場合や、システムの不具合を見つけた場合はこちらからご連絡ください。<br>
+            ※システム上からの返信機能はありません。確認次第、必要に応じて個別にご連絡します。
+        </p>
+
+        <form id="inquiry-form">
+            <div class="form-group">
+                <label>あなたの学籍番号（送信元ID）</label>
+                <input type="text" id="user-id" readonly value="読込中...">
+            </div>
+
+            <div class="form-group">
+                <label for="category">お問い合わせの件名 <span style="color:#d0021b;">*</span></label>
+                <select id="category" required>
+                    <option value="">選択してください</option>
+                    <option value="部室予約について">部室予約について</option>
+                    <option value="バンド登録について">バンド登録について</option>
+                    <option value="ライブエントリーについて">ライブエントリーについて</option>
+                    <option value="打ち上げ回答について">打ち上げ回答について</option>
+                    <option value="その他・バグ報告など">その他・バグ報告など</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="message">お問い合わせ内容・概要 <span style="color:#d0021b;">*</span></label>
+                <textarea id="message" required placeholder="具体的な状況や、お困りの内容を詳しく記入してください。"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-submit" id="btn-submit" disabled>確認画面へ進む</button>
+        </form>
+    </div>
+
+    <!-- ▼ カスタム確認モーダル ▼ -->
+    <div class="modal" id="confirm-modal">
+        <div class="modal-content" style="border-top-color: #4A90E2;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 1.1em; border-bottom: 1px solid #ccc; padding-bottom: 5px;">送信内容の確認</h3>
+            <div id="confirm-modal-details" style="font-size: 0.95em; line-height: 1.6; text-align: left; background: #f9f9f9; padding: 10px; border-radius: 4px; border: 1px solid #ddd; max-height: 50vh; overflow-y: auto;"></div>
+            <div class="confirm-actions">
+                <button type="button" class="btn btn-modal-cancel" id="btn-confirm-cancel">修正する</button>
+                <button type="button" class="btn btn-modal-confirm" id="btn-confirm-execute">送信する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ▼ カスタムアラートモーダル ▼ -->
+    <div class="modal" id="alert-modal">
+        <div class="modal-content" id="alert-modal-content">
+            <p id="alert-modal-message" style="color: #333; line-height: 1.5; font-weight: bold; margin: 15px 0; font-size: 1em;"></p>
+            <button class="btn" id="btn-alert-ok" style="width: 100%;">OK</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { db, auth } from "./firebase.js";
+        import { setupHeader } from "./Component.js";
+        import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+        setupHeader('サポート窓口', 'back');
+
+        let currentUserId = "";
+        let pendingInquiry = null;
+
+        // ▼ 追加：ユーザーの権限に応じてURLをセットする関数
+        function loadManualLink() {
+            const manualBtn = document.getElementById('manual-link');
+            const userRole = localStorage.getItem('userRole'); // ログイン時に保存されている権限を取得
+
+            // ==========================================
+            // ▼ ここでマニュアルのURLを設定します ▼
+            // ==========================================
+            const userManualUrl = "https://app.notion.com/p/user-3c15a75a648b80a68dcaee069b5e77f7?source=copy_link"; // 一般部員用
+            const adminManualUrl = "https://app.notion.com/p/admin-3c75a75a648b804bbd74d87d0653d841?source=copy_link"; // admin用
+            // ==========================================
+
+            if (userRole === 'admin' || userRole === 'sysadmin') {
+                // 管理者の場合
+                manualBtn.href = adminManualUrl;
+                manualBtn.textContent = "管理者用マニュアルを開く ↗";
+            } else {
+                // 一般部員の場合
+                manualBtn.href = userManualUrl;
+                manualBtn.textContent = "取扱説明書（マニュアル）を開く ↗";
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUserId = user.email.split('@')[0];
+                document.getElementById('user-id').value = currentUserId;
+                document.getElementById('btn-submit').disabled = false;
+                
+                // ▼ 追加：ログイン確認後にURLとテキストをセットする
+                loadManualLink();
+            } else {
+                alert("ログイン状態が確認できません。再度ログインしてください。");
+                window.location.href = "login.html";
+            }
+        });
+
+        function customAlert(message, isError = false) {
+            document.getElementById('alert-modal-message').innerHTML = message;
+            const content = document.getElementById('alert-modal-content');
+            const btnOk = document.getElementById('btn-alert-ok');
+            if (isError) {
+                content.style.borderTopColor = '#d0021b';
+                btnOk.style.backgroundColor = '#d0021b';
+            } else {
+                content.style.borderTopColor = '#4caf50';
+                btnOk.style.backgroundColor = '#4caf50';
+            }
+            document.getElementById('alert-modal').style.display = 'flex';
+            document.body.classList.add('modal-open');
+        }
+
+        document.getElementById('btn-alert-ok').addEventListener('click', () => {
+            document.getElementById('alert-modal').style.display = 'none';
+            document.body.classList.remove('modal-open');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        document.getElementById('inquiry-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const category = document.getElementById('category').value;
+            const message = document.getElementById('message').value.trim();
+
+            if (!category || !message) {
+                customAlert('件名と概要を両方入力してください。', true);
+                return;
+            }
+
+            pendingInquiry = { category, message };
+
+            let confirmHtml = `<div style="margin-bottom: 10px;"><strong>【件名】</strong><br>${category}</div>`;
+            confirmHtml += `<div><strong>【お問い合わせ内容】</strong><br>${message.replace(/\n/g, '<br>')}</div>`;
+            
+            document.getElementById('confirm-modal-details').innerHTML = confirmHtml;
+            document.getElementById('confirm-modal').style.display = 'flex';
+            document.body.classList.add('modal-open');
+        });
+
+        document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
+            document.getElementById('confirm-modal').style.display = 'none';
+            document.body.classList.remove('modal-open');
+            pendingInquiry = null;
+        });
+
+        document.getElementById('btn-confirm-execute').addEventListener('click', async () => {
+            if (!pendingInquiry) return;
+
+            document.getElementById('confirm-modal').style.display = 'none';
+            document.body.classList.remove('modal-open');
+            
+            const btnSubmit = document.getElementById('btn-submit');
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = '送信中...';
+
+            try {
+                await addDoc(collection(db, "inquiries"), {
+                    userId: currentUserId,
+                    category: pendingInquiry.category,
+                    message: pendingInquiry.message,
+                    status: 'unread',
+                    createdAt: serverTimestamp()
+                });
+
+                // Discordへの通知処理
+                const webhookUrl = 'https://discord.com/api/webhooks/1542443640616652830/lC9zzhf1JIx5HCb6sDLKeMAmkPhBt8mInNJ93qSb6w62j2vgVWij7f6ysl2-FCYnm3vB';
+                
+                const discordMessage = {
+                    content: `🔔 **新しいお問い合わせが届きました！**\n**【送信者】** ${currentUserId}\n**【件名】** ${pendingInquiry.category}\n**【内容】**\n${pendingInquiry.message}`
+                };
+
+                fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(discordMessage)
+                }).catch(err => console.error("Discord通知エラー:", err));
+
+                document.getElementById('inquiry-form').reset();
+                document.getElementById('user-id').value = currentUserId;
+                
+                customAlert('【送信完了】<br>管理者へのお問い合わせを送信しました。');
+
+            } catch (error) {
+                console.error("送信エラー:", error);
+                customAlert('送信に失敗しました。通信環境を確認してください。', true);
+            }
+
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = '確認画面へ進む';
+            pendingInquiry = null;
+        });
+    </script>
+</body>
+</html>

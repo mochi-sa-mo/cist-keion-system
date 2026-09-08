@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログイン - 部室予約システム</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4A90E2">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW登録成功:', reg.scope))
+                    .catch(err => console.log('SW登録失敗:', err));
+            });
+        }
+    </script>
+    
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 350px; }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; font-size: 1.5em; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #666; font-size: 0.9em; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em; }
+        .btn { width: 100%; padding: 12px; background-color: #4A90E2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; font-weight: bold; transition: background-color 0.2s; }
+        .btn:hover { background-color: #357abd; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        .error-message { color: #d0021b; font-size: 0.85em; margin-bottom: 15px; text-align: center; display: none; }
+        
+        /* ★ 共通のカードスタイル（画像参考） */
+        .alert-card {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 20px; /* 余白を少し広げてカードっぽく */
+            border-radius: 16px; /* 角を大きく丸くする */
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .alert-card h3 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-bottom: none; /* 下線を消してスッキリさせる */
+        }
+
+        .alert-card .alert-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* メンテナンス表示用（黄色） */
+        .maintenance-alert { 
+            background-color: #fff3cd; 
+            border: 2px solid #ffeeba; /* 枠線を2pxに強調 */
+            color: #856404; 
+        }
+        .maintenance-alert h3 { color: #856404; }
+        
+        /* お知らせ表示用（水色） */
+        .notice-alert { 
+            background-color: #e3f2fd; 
+            border: 2px solid #b6d4fe; /* 枠線を2pxに強調 */
+            color: #004085; 
+        }
+        .notice-alert h3 { color: #004085; }
+
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <h1>部室予約システム</h1>
+        
+        <!-- メンテナンス時のメッセージ領域 -->
+        <div id="maintenance-alert" class="alert-card maintenance-alert">
+            <h3>⚠️ メンテナンス中です</h3>
+            <div id="maintenance-content" class="alert-content"></div>
+        </div>
+
+        <!-- お知らせのメッセージ領域 -->
+        <div id="notice-alert" class="alert-card notice-alert">
+            <h3>📢 お知らせ</h3>
+            <div id="notice-content" class="alert-content"></div>
+        </div>
+
+        <div class="error-message" id="error-msg">IDまたはパスワードが間違っています。</div>
+        
+        <form id="login-form">
+            <div class="form-group">
+                <label for="userid">ログインID</label>
+                <input type="text" id="userid" required placeholder="IDを入力">
+            </div>
+            <div class="form-group">
+                <label for="password">パスワード</label>
+                <input type="password" id="password" required placeholder="パスワードを入力">
+            </div>
+            <button type="submit" class="btn" id="btn-submit">ログイン</button>
+        </form>
+    </div>
+
+    <script type="module">
+        import { db, auth } from "./firebase.js"; 
+        import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+        let isMaintenanceMode = false;
+
+        // メンテナンス状態のリアルタイム監視
+        onSnapshot(doc(db, "systemSettings", "maintenance"), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                isMaintenanceMode = data.active;
+                const alertBox = document.getElementById('maintenance-alert');
+
+                if (isMaintenanceMode) {
+                    alertBox.style.display = 'block';
+                    document.getElementById('maintenance-content').textContent = data.message || "現在システムを利用できません。";
+                } else {
+                    alertBox.style.display = 'none';
+                }
+            }
+        });
+
+        // お知らせ状態のリアルタイム監視
+        onSnapshot(doc(db, "systemSettings", "systemNotice"), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                const noticeBox = document.getElementById('notice-alert');
+                const noticeContent = document.getElementById('notice-content');
+
+                if (data.active && data.message && data.message.trim() !== "") {
+                    noticeBox.style.display = 'block';
+                    noticeContent.textContent = data.message;
+                } else {
+                    noticeBox.style.display = 'none';
+                }
+            }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const id = document.getElementById('userid').value.trim();
+            const pass = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-msg');
+            const btnSubmit = document.getElementById('btn-submit');
+
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = '認証中...';
+            errorMsg.style.display = 'none';
+
+            try {
+                // 1. 入力されたID(学籍番号)からダミーメールアドレスを生成
+                const dummyEmail = `${id}@dummy.local`;
+
+                // 2. Firebase Authenticationの安全な仕組みでログイン処理
+                await signInWithEmailAndPassword(auth, dummyEmail, pass);
+
+                // 3. ログイン成功後、Firestoreから権限(ロール)を取得
+                // ※新しく「users」というコレクションを作ってロールを管理します
+                const userRef = doc(db, "users", id);
+                const userSnap = await getDoc(userRef);
+
+                // Firestoreに権限設定がない部員は、自動的に一般ユーザー(member)とする
+                // role = userの member を割り振っている
+                let assignedRole = 'member';
+                if (userSnap.exists() && userSnap.data().role) {
+                    assignedRole = userSnap.data().role;
+                }
+
+                // 4. メンテナンスモードの確認
+                // ▼ 変更：sysadmin, adminadmin, useruser はメンテナンス状態を無視してログイン可能にする
+                if (isMaintenanceMode && assignedRole !== 'sysadmin' && assignedRole !== 'adminadmin' && assignedRole !== 'useruser') {
+                    errorMsg.textContent = "現在メンテナンス中のためログインできません。";
+                    errorMsg.style.display = 'block';
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = 'ログイン';
+                    return;
+                }
+
+                // 5. 権限ごとの画面へ遷移
+                localStorage.setItem('userRole', assignedRole);
+
+                if (assignedRole === 'admin') window.location.href = 'admin.html';
+                else if (assignedRole === 'log') window.location.href = 'log.html';
+                else if (assignedRole === 'sysadmin') window.location.href = 'sysadmin.html';
+                else if (assignedRole === 'adminadmin') window.location.href = 'admin.html';
+                else if (assignedRole === 'useruser') window.location.href = 'index.html';
+                else window.location.href = 'index.html';
+
+            } catch (error) {
+                // Authで弾かれた（ID未登録、パスワード間違い等）場合はここに来る
+                console.error("認証エラー:", error);
+                errorMsg.textContent = "IDまたはパスワードが間違っています。";
+                errorMsg.style.display = 'block';
+            }
+
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = 'ログイン';
+        });
+    </script>
+</body>
+</html>
