@@ -4,12 +4,12 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/12.15.0/firebas
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyBMIYb5mt_aFCxWuJtN5slJi67H_3E8mIs",
-  authDomain: "room-reservation-system-demooo.firebaseapp.com",
-  projectId: "room-reservation-system-demooo",
-  storageBucket: "room-reservation-system-demooo.firebasestorage.app",
-  messagingSenderId: "804014151337",
-  appId: "1:804014151337:web:e14d41d84ba69b45cebbb8"
+  apiKey: "AIzaSyC7gyfUNXd-nScjaztNG7Mfg9rVeqkLhd4",
+  authDomain: "cist-keion-system.firebaseapp.com",
+  projectId: "cist-keion-system",
+  storageBucket: "cist-keion-system.firebasestorage.app",
+  messagingSenderId: "430841800262",
+  appId: "1:430841800262:web:01b325c0ae689d4c6b0c47"
 };
 
 const app = initializeApp(firebaseConfig);
