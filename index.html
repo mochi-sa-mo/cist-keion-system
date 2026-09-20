@@ -309,7 +309,6 @@
             }
         }
 
-        // ▼ 修正：シート未提出アラートのチェック関数（モーダルを開かせる仕様） ▼
         async function checkUnsubmittedSheets() {
             try {
                 const myLeaderBandIds = [];
@@ -330,7 +329,7 @@
                         if (!unsubmittedMap[data.liveId]) {
                             unsubmittedMap[data.liveId] = {
                                 liveName: data.liveName,
-                                announcement: null, // ▼ 修正：URLではなくお知らせデータ全体を保持する
+                                announcement: null,
                                 bands: []
                             };
                         }
@@ -346,7 +345,7 @@
                 annSnap.forEach(doc => {
                     const data = doc.data();
                     if (!data.deleted && unsubmittedMap[data.targetLiveId]) {
-                        unsubmittedMap[data.targetLiveId].announcement = { id: doc.id, ...data }; // ▼ 修正：お知らせ情報をセット
+                        unsubmittedMap[data.targetLiveId].announcement = { id: doc.id, ...data }; 
                     }
                 });
 
@@ -356,21 +355,18 @@
 
                 for (const liveId in unsubmittedMap) {
                     const info = unsubmittedMap[liveId];
-                    // ▼ 修正：お知らせが存在すれば表示（URLが空でもモーダルで確認できる）
                     if (info.announcement) {
                         hasAlert = true;
                         const alertDiv = document.createElement('div');
                         alertDiv.className = 'rsvp-alert';
                         const bandStr = info.bands.join(', ');
                         
-                        // ▼ 修正：<a>タグではなく<button>にして、クリック時にモーダルを開く
                         alertDiv.innerHTML = `
                             <div class="rsvp-alert-text">⚠️ 「${info.liveName}」のエントリーシートが未提出です！<br><span style="font-size: 0.8em; font-weight: normal; color: #333;">(対象: ${bandStr})</span></div>
                             <button class="btn-rsvp-link" style="border:none; cursor:pointer; font-family:inherit; font-size:1em;" id="btn-sheet-alert-${liveId}">提出先を確認する</button>
                         `;
                         container.appendChild(alertDiv);
                         
-                        // ▼ 修正：ボタンを押したらモーダルを開く処理を紐付ける
                         document.getElementById(`btn-sheet-alert-${liveId}`).onclick = () => {
                             openDetailModal("📝 シート提出先", info.announcement, 'sheet');
                         };
@@ -632,6 +628,8 @@
 
                 fields = [
                     { label: 'バンド名', value: data.bandName },
+                    // ▼ 予約者（学籍番号）を表示する項目を追加
+                    { label: '予約者 (学籍番号)', value: data.userId || '未記録' },
                     { label: '備考', value: data.notes },
                     { label: '状態', value: statusMsg }
                 ];
