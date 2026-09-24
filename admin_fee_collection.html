@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>出演料集金管理 - 部室予約システム</title>
+
+    <script>
+        const checkRole = localStorage.getItem('userRole');
+        if (checkRole !== 'admin' && checkRole !== 'adminadmin') {
+            alert('アクセス権限がありません。');
+            window.location.replace('login.html');
+        }
+    </script>
+
+    <style>
+        :root { --primary-color: #4caf50; --bg-color: #f5f7fa; --border-color: #ccc; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg-color); margin: 0; padding: 15px; color: #333; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--border-color); flex-wrap: wrap; gap: 10px; }
+        
+        .container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto; }
+        .section-title { margin-top: 0; margin-bottom: 15px; border-left: 5px solid var(--primary-color); padding-left: 10px; font-size: 1.3em; }
+        
+        .btn-nav { background-color: #e0e0e0; color: #333; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; text-decoration: none; transition: 0.2s;} 
+        .btn-nav:hover { background-color: #d0d0d0; }
+
+        select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 1em; margin-bottom: 20px; background: #fff;}
+        select.filter-select { padding: 6px; font-size: 0.9em; width: auto; margin-bottom: 0; margin-left: 10px; border: 2px solid var(--primary-color);}
+
+        /* サマリー（集計） */
+        .summary-box { display: flex; gap: 10px; margin-bottom: 15px; text-align: center;}
+        .summary-item { flex: 1; padding: 15px 5px; border-radius: 8px; border: 1px solid #eee; background: #fafafa; }
+        .summary-item.paid { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
+        .summary-item.unpaid { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
+        .summary-num { font-size: 1.6em; font-weight: bold; display: block; margin-top: 5px; }
+
+        /* リストデザイン */
+        .payment-list { display: flex; flex-direction: column; gap: 10px; }
+        .payment-card { display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid #eee; border-radius: 8px; background: #fff; transition: 0.2s;}
+        .payment-card.is-paid { background: #f1f8e9; border-color: #c5e1a5; }
+        
+        .user-info { display: flex; flex-direction: column; }
+        .user-id { font-size: 0.85em; color: #666; }
+        .user-name { font-size: 1.1em; font-weight: bold; color: #333; }
+
+        /* ▼ iOS風トグルスイッチ ▼ */
+        .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 30px; }
+        .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);}
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(30px); }
+
+        /* トースト通知 */
+        #toast {
+            visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; 
+            border-radius: 30px; padding: 12px 20px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; 
+            transform: translateX(-50%); font-size: 0.9em; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+        }
+        #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>💰 出演料 集金管理</h1>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="admin.html" class="btn-nav">← 戻る</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="section-title">ライブ出演者からの出演料徴収</div>
+        <p style="font-size: 0.85em; color: #666; margin-top: 0;">各ライブの出演者（対象者）が自動で表示されます。スイッチを切り替えると<strong>自動で即時保存</strong>されます。</p>
+
+        <select id="live-select">
+            <option value="">ライブを選択してください...</option>
+        </select>
+
+        <div id="dashboard" style="display: none;">
+            
+            <!-- 出演料の入力エリア -->
+            <div style="margin-bottom: 15px; background: #fff3e0; padding: 15px; border-radius: 8px; border-left: 5px solid #ff9800; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <strong style="color: #e65100; font-size: 1.1em;">💰 1人あたりの出演料設定:</strong>
+                <div style="display: flex; align-items: center;">
+                    <input type="number" id="fee-input" value="1000" style="padding: 8px; width: 100px; font-size: 1.1em; border: 1px solid #ccc; border-radius: 4px; text-align: right;" min="0" step="100"> 
+                    <span style="margin-left: 5px; font-weight: bold;">円</span>
+                </div>
+            </div>
+
+            <!-- 金額サマリー -->
+            <div class="summary-box">
+                <div class="summary-item" style="background:#e3f2fd; border-color:#bbdefb; color:#1565c0;">
+                    合計目標金額<span class="summary-num" id="amount-target">¥0</span>
+                </div>
+                <div class="summary-item paid" style="border-width: 2px;">
+                    現在集まっている金額<span class="summary-num" id="amount-collected">¥0</span>
+                </div>
+            </div>
+
+            <!-- 人数サマリー -->
+            <div class="summary-box">
+                <div class="summary-item">対象者<span class="summary-num" id="count-total">0人</span></div>
+                <div class="summary-item paid">支払済<span class="summary-num" id="count-paid">0人</span></div>
+                <div class="summary-item unpaid">未払い<span class="summary-num" id="count-unpaid">0人</span></div>
+            </div>
+
+            <!-- 学年ごとの絞り込みフィルター -->
+            <div style="display: flex; align-items: center; margin-bottom: 15px; background: #e8f5e9; padding: 10px; border-radius: 8px;">
+                <strong style="color: #2e7d32; font-size: 0.9em;">🔍 学年（ID）で絞り込み:</strong>
+                <select id="year-filter" class="filter-select">
+                    <option value="all">すべて表示</option>
+                </select>
+            </div>
+
+            <div class="payment-list" id="payment-list">
+                <!-- ここにリストが生成されます -->
+            </div>
+        </div>
+        <div id="loading-msg" style="color: #999; text-align: center; margin-top: 20px;">ライブを選択してください</div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="toast">保存しました</div>
+
+    <script type="module">
+        import { db } from "./firebase.js";
+        import { collection, getDocs, getDoc, doc, setDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        let currentLiveId = "";
+        let nameDictionary = {};
+        let participants = []; 
+
+        window.onload = async function() {
+            document.getElementById('live-select').onchange = handleLiveChange;
+            document.getElementById('year-filter').addEventListener('change', renderList);
+            
+            // 出演料が変更されたら、即座に金額を再計算する
+            document.getElementById('fee-input').addEventListener('input', updateCountersAndAmounts);
+
+            await loadNameDictionary();
+            init();
+        };
+
+        // データベースから名簿辞書を自動取得
+        async function loadNameDictionary() {
+            try {
+                const dictDoc = await getDoc(doc(db, "systemSettings", "nameDictionary"));
+                if (dictDoc.exists()) {
+                    nameDictionary = dictDoc.data();
+                }
+            } catch (e) {
+                console.warn("名簿辞書の取得に失敗しました", e);
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            toast.textContent = message;
+            toast.className = "show";
+            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 2500);
+        }
+
+        async function init() {
+            try {
+                const liveSelect = document.getElementById('live-select');
+                const livesQuery = query(collection(db, "lives"));
+                const livesSnap = await getDocs(livesQuery);
+                
+                livesSnap.forEach(d => {
+                    const option = document.createElement('option');
+                    option.value = d.id;
+                    option.textContent = d.data().name;
+                    liveSelect.appendChild(option);
+                });
+            } catch (error) { console.error(error); alert("データの読み込みに失敗しました。"); }
+        }
+
+        async function handleLiveChange(e) {
+            currentLiveId = e.target.value;
+            const dashboard = document.getElementById('dashboard');
+            const loadingMsg = document.getElementById('loading-msg');
+            
+            if (!currentLiveId) {
+                dashboard.style.display = 'none';
+                loadingMsg.style.display = 'block';
+                return;
+            }
+            await loadParticipants();
+        }
+
+        async function loadParticipants() {
+            const dashboard = document.getElementById('dashboard');
+            const loadingMsg = document.getElementById('loading-msg');
+            
+            dashboard.style.display = 'none';
+            loadingMsg.style.display = 'block';
+            loadingMsg.textContent = 'データを取得中...';
+
+            try {
+                // 1. ライブデータの取得 (targetUserIdsを取得するため)[cite: 7]
+                const liveDoc = await getDoc(doc(db, "lives", currentLiveId));
+                let userIds = [];
+                
+                if (liveDoc.exists() && liveDoc.data().targetUserIds) {
+                    userIds = liveDoc.data().targetUserIds;[cite: 7]
+                }
+
+                // (フェイルセーフ) もしtargetUserIdsが空なら、承認済みエントリーから自動抽出する
+                if (userIds.length === 0) {
+                    const entryQ = query(collection(db, "liveEntries"), where("liveId", "==", currentLiveId), where("status", "==", "approved"));
+                    const entrySnap = await getDocs(entryQ);
+                    const idSet = new Set();
+                    entrySnap.forEach(d => {
+                        (d.data().performerIds || []).forEach(id => idSet.add(id));
+                    });
+                    userIds = Array.from(idSet);
+                }
+
+                // 2. 出演料の支払い状況 (livePaymentsコレクション) を取得
+                const payQ = query(collection(db, "livePayments"), where("liveId", "==", currentLiveId));
+                const paySnap = await getDocs(payQ);
+                const paymentMap = {};
+                paySnap.forEach(d => {
+                    paymentMap[d.data().userId] = d.data().isPaid;
+                });
+                
+                participants = [];
+                let availableYears = new Set(); 
+                
+                // リストを作成
+                userIds.forEach(id => {
+                    participants.push({
+                        userId: id,
+                        name: nameDictionary[id] || "名前未登録", 
+                        isPaid: paymentMap[id] === true
+                    });
+                    availableYears.add(id.substring(0, 2));
+                });
+
+                // 学籍番号順にソート
+                participants.sort((a, b) => a.userId.localeCompare(b.userId));
+
+                // フィルターのドロップダウンを生成
+                const filterSelect = document.getElementById('year-filter');
+                filterSelect.innerHTML = '<option value="all">すべて表示</option>';
+                Array.from(availableYears).sort().forEach(year => {
+                    filterSelect.innerHTML += `<option value="${year}">${year}から始まるIDのみ</option>`;
+                });
+
+                renderList();
+
+                loadingMsg.style.display = 'none';
+                dashboard.style.display = 'block';
+
+            } catch (error) {
+                console.error(error);
+                loadingMsg.textContent = 'エラーが発生しました。';
+            }
+        }
+
+        function renderList() {
+            const listContainer = document.getElementById('payment-list');
+            listContainer.innerHTML = '';
+            
+            const selectedYear = document.getElementById('year-filter').value;
+            
+            const filteredParticipants = participants.filter(p => {
+                if (selectedYear === 'all') return true;
+                return p.userId.startsWith(selectedYear);
+            });
+
+            if (filteredParticipants.length === 0) {
+                listContainer.innerHTML = '<p style="text-align:center; color:#999;">表示する対象者がいません。</p>';
+                updateCountersAndAmounts();
+                return;
+            }
+
+            filteredParticipants.forEach(p => {
+                const card = document.createElement('div');
+                card.className = `payment-card ${p.isPaid ? 'is-paid' : ''}`;
+                card.id = `card-${p.userId}`;
+
+                card.innerHTML = `
+                    <div class="user-info">
+                        <span class="user-id">${p.userId}</span>
+                        <span class="user-name">${p.name}</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-${p.userId}" ${p.isPaid ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                `;
+                
+                listContainer.appendChild(card);
+
+                const toggle = card.querySelector(`#toggle-${p.userId}`);
+                toggle.addEventListener('change', async (e) => {
+                    const isPaid = e.target.checked;
+                    await updatePayment(p.userId, isPaid, card);
+                });
+            });
+
+            updateCountersAndAmounts();
+        }
+
+        async function updatePayment(userId, isPaid, cardElement) {
+            const docId = `${currentLiveId}_${userId}`;
+
+            if (isPaid) cardElement.classList.add('is-paid');
+            else cardElement.classList.remove('is-paid');
+
+            try {
+                // livePaymentsコレクションに保存
+                await setDoc(doc(db, "livePayments", docId), {
+                    liveId: currentLiveId,
+                    userId: userId,
+                    isPaid: isPaid,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+
+                const target = participants.find(p => p.userId === userId);
+                if (target) target.isPaid = isPaid;
+                
+                updateCountersAndAmounts();
+
+                showToast(isPaid ? `✅ ${target.name} さんの出演料を登録しました` : `❌ ${target.name} さんを未払いに戻しました`);
+
+            } catch (error) {
+                console.error("更新エラー:", error);
+                alert("保存に失敗しました。通信環境を確認してください。");
+                document.getElementById(`toggle-${userId}`).checked = !isPaid;
+                if (!isPaid) cardElement.classList.add('is-paid');
+                else cardElement.classList.remove('is-paid');
+            }
+        }
+
+        // 人数と金額を計算して画面を更新する関数
+        function updateCountersAndAmounts() {
+            const selectedYear = document.getElementById('year-filter').value;
+            const filtered = participants.filter(p => selectedYear === 'all' || p.userId.startsWith(selectedYear));
+            
+            const totalCount = filtered.length;
+            const paidCount = filtered.filter(p => p.isPaid).length;
+            const unpaidCount = totalCount - paidCount;
+
+            // 人数の更新
+            document.getElementById('count-total').textContent = totalCount + '人';
+            document.getElementById('count-paid').textContent = paidCount + '人';
+            document.getElementById('count-unpaid').textContent = unpaidCount + '人';
+
+            // 金額の計算と更新
+            const feeInput = document.getElementById('fee-input').value;
+            const fee = parseInt(feeInput, 10) || 0; // 入力が空や文字の場合は0にする
+
+            const targetAmount = totalCount * fee;
+            const collectedAmount = paidCount * fee;
+
+            document.getElementById('amount-target').textContent = '¥' + targetAmount.toLocaleString();
+            document.getElementById('amount-collected').textContent = '¥' + collectedAmount.toLocaleString();
+        }
+    </script>
+</body>
+</html>
