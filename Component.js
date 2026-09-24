@@ -127,9 +127,9 @@ export function setupHeader(title, type = 'back') {
             menuItems = `
                 <li class="menu-category">管理者メニュー</li>
                 <li><a href="admin_live_manager.html" style="color: #d32f2f;">ライブ審査・管理</a></li>
+                <li><a href="admin_fee_collection.html" style="color: #0d47a1;">出演費集金状況管理</a></li>
                 <li><a href="admin_rsvp_manager.html" style="color: #2e7d32;">打ち上げ参加状況管理</a></li>
                 <li><a href="admin_rsvp_pay.html" style="color: #1976d2;">打ち上げ集金状況管理</a></li>
-                <li><a href="admin_fee_collection.html" style="color: #0d47a1;">出演費集金状況管理</a></li>
                 <li><a href="admin_board.html" id="nav-admin-board-link" style="color: #f57c00; display: flex; align-items: center;"><span>掲示板の審査・管理</span></a></li>
             `;
         } else {
