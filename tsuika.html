@@ -424,7 +424,13 @@
                 if (currentWeekDates[dIndex] === todayStr) {
                     dayCell.classList.add('today-col');
                 }
-                dayCell.textContent = day;
+                
+                // ▼ 変更：日付も一緒に表示する
+                const dateParts = currentWeekDates[dIndex].split('-');
+                const m = parseInt(dateParts[1], 10);
+                const d = parseInt(dateParts[2], 10);
+                dayCell.textContent = `${m}/${d}（${day}）`;
+                
                 grid.appendChild(dayCell);
             });
 
@@ -503,7 +509,11 @@
         }
 
         function toggleSlotSelection(dayIndex, periodIndex, cellElement) {
-            const slotStr = `${days[dayIndex]}曜 ${periods[periodIndex]}`;
+            const dateParts = currentWeekDates[dayIndex].split('-');
+            const m = parseInt(dateParts[1], 10);
+            const d = parseInt(dateParts[2], 10);
+            // ▼ 変更：選択リストの表示も「月/日」を含める
+            const slotStr = `${m}/${d}(${days[dayIndex]}) ${periods[periodIndex]}`;
             const slotData = { day: dayIndex, period: periodIndex, text: slotStr };
 
             const targetIndex = selectedSlots.findIndex(
@@ -524,7 +534,7 @@
         function updateSelectedDisplay() {
             const display = document.getElementById('selected-display');
             if (selectedSlots.length === 0) {
-                display.textContent = '選択されていません（クリックして枠を選んでください）';
+                display.textContent = '選択されていません（枠を選んでください）';
                 display.style.color = '#555';
             } else {
                 display.innerHTML = selectedSlots.map(s => `<strong>${s.text}</strong>`).join(', ');
