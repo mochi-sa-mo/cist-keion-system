@@ -6,7 +6,8 @@
     <title>ライブ管理 - 部室予約システム</title>
 
     <script>
-        if (localStorage.getItem('userRole') !== 'admin') {
+        const checkRole = localStorage.getItem('userRole');
+        if (checkRole !== 'admin' && checkRole !== 'adminadmin') {
             alert('アクセス権限がありません。');
             window.location.replace('login.html');
         }
