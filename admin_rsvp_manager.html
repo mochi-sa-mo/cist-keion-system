@@ -27,6 +27,7 @@
         .btn-nav { background-color: #e0e0e0; color: #333; } .btn-nav:hover { background-color: #d0d0d0; }
         .btn-info { background-color: #00bcd4; color: white; } .btn-info:hover { background-color: #0097a7; }
         .btn-csv { background-color: #4caf50; color: white; font-size: 0.9em;} .btn-csv:hover { background-color: #388e3c; }
+        .btn-guest { background-color: #9c27b0; color: white; font-size: 0.9em;} .btn-guest:hover { background-color: #7b1fa2; }
 
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
@@ -45,6 +46,7 @@
         .translated-name { color: #0056b3; }
         .role-tag { font-size: 0.75em; padding: 2px 6px; border-radius: 12px; margin-left: 5px; background: #9e9e9e; color: white; display: inline-block; margin-top: 3px;}
         .role-performer { background: #ff9800; }
+        .role-guest { background: #9c27b0; }
 
         .select-status { padding: 6px; font-weight: bold; border-radius: 4px; border: 1px solid #ccc; width: 100px; box-sizing: border-box;}
         .input-comment { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; min-width: 150px;}
@@ -89,7 +91,10 @@
     <div class="container">
         <div class="section-title">
             <span>打ち上げ参加状況の確認・編集</span>
-            <button class="btn btn-csv" id="btn-download-csv" style="display: none;">📥 CSVで保存</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-guest" id="btn-open-guest-modal" style="display: none;">＋ ゲストを追加</button>
+                <button class="btn btn-csv" id="btn-download-csv" style="display: none;">📥 CSVで保存</button>
+            </div>
         </div>
         <p style="font-size: 0.85em; color: #666; margin-top: 0;">ライブの回答状況を一覧で確認し、必要に応じて管理者が代理で変更・保存できます。</p>
         
@@ -104,7 +109,6 @@
 
         <div id="rsvp-dashboard" style="display: none;">
             
-            <!-- ▼ 打ち上げ概要設定エリアを追加 ▼ -->
             <div style="background: #fff8e1; border: 1px solid #ffecb3; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <h3 style="margin-top: 0; font-size: 1.1em; color: #e65100; border-bottom: 1px solid #ffe082; padding-bottom: 5px;">🍻 打ち上げの概要・詳細設定</h3>
                 <p style="font-size: 0.85em; color: #666; margin-bottom: 10px;">ここに記入した内容が、部員が回答する画面に表示されます。（場所、時間、会費など）</p>
@@ -133,6 +137,26 @@
             </table>
         </div>
         <div id="loading-msg" style="color: #999; text-align: center; margin-top: 20px;">ライブを選択してください</div>
+    </div>
+
+    <!-- ▼ ゲスト追加モーダル ▼ -->
+    <div class="modal" id="guest-modal">
+        <div class="modal-content" style="width: 400px; max-width: 95%;">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #9c27b0; padding-bottom: 5px; color: #7b1fa2;">👤 ゲストの追加登録</h3>
+            <p style="font-size: 0.85em; color: #666; margin-bottom: 15px;">OBや他大生など、学籍番号を持たない参加者を登録します。自動で専用IDが発行され、「参加」としてリストに追加されます。</p>
+            <div class="form-group">
+                <label for="guest-name">ゲストの名前（表示名）</label>
+                <input type="text" id="guest-name" placeholder="例：山田（OB）" required>
+            </div>
+            <div class="form-group">
+                <label for="guest-comment">備考（任意）</label>
+                <input type="text" id="guest-comment" placeholder="例：22時ごろ合流予定">
+            </div>
+            <div class="confirm-actions">
+                <button class="btn btn-nav" id="btn-close-guest">キャンセル</button>
+                <button class="btn" id="btn-save-guest" style="background-color: #9c27b0;">リストに追加する</button>
+            </div>
+        </div>
     </div>
 
     <!-- 辞書設定モーダル -->
@@ -185,9 +209,16 @@
             document.getElementById('live-select').onchange = handleLiveChange;
             
             document.getElementById('btn-download-csv').onclick = downloadCSV;
-
-            // ▼ 打ち上げ概要の保存ボタンイベント ▼
             document.getElementById('btn-save-details').onclick = saveRsvpDetails;
+
+            // ▼ ゲスト追加ボタンイベント ▼
+            document.getElementById('btn-open-guest-modal').onclick = () => {
+                document.getElementById('guest-name').value = '';
+                document.getElementById('guest-comment').value = '';
+                document.getElementById('guest-modal').style.display = 'flex';
+            };
+            document.getElementById('btn-close-guest').onclick = () => { document.getElementById('guest-modal').style.display = 'none'; };
+            document.getElementById('btn-save-guest').onclick = saveGuest;
 
             document.getElementById('btn-open-dict').onclick = () => {
                 let text = "";
@@ -209,7 +240,6 @@
             setTimeout(() => { el.style.display = 'none'; }, 3000);
         }
 
-        // ▼ 概要をデータベースに保存する関数 ▼
         async function saveRsvpDetails() {
             if (!currentLiveId) return;
             const btn = document.getElementById('btn-save-details');
@@ -228,6 +258,61 @@
 
             btn.disabled = false;
             btn.textContent = '概要を保存して部員に公開する';
+        }
+
+        // ▼ ゲスト情報を保存する関数 ▼
+        async function saveGuest() {
+            if (!currentLiveId) return;
+            const name = document.getElementById('guest-name').value.trim();
+            const comment = document.getElementById('guest-comment').value.trim();
+            
+            if (!name) {
+                alert("ゲストの名前を入力してください。");
+                return;
+            }
+
+            const btn = document.getElementById('btn-save-guest');
+            btn.disabled = true;
+            btn.textContent = '追加中...';
+
+            // ランダムなダミーIDを生成（guest_ + 6桁のランダム英数字）
+            const dummyId = 'guest_' + Math.random().toString(36).substring(2, 8);
+
+            try {
+                // 1. 名簿辞書に登録
+                nameDictionary[dummyId] = name;
+                sessionStorage.setItem('adminNameDictionary', JSON.stringify(nameDictionary));
+                
+                // FirestoreのsystemSettingsの辞書も更新しておく（任意ですがあると便利です）
+                const dictDocRef = doc(db, "systemSettings", "nameDictionary");
+                const dictDoc = await getDoc(dictDocRef);
+                let dbDict = dictDoc.exists() ? dictDoc.data() : {};
+                dbDict[dummyId] = name;
+                await setDoc(dictDocRef, dbDict);
+
+                // 2. rsvpsコレクションに「参加」として登録
+                const docId = `${currentLiveId}_${dummyId}`;
+                await setDoc(doc(db, "rsvps", docId), {
+                    liveId: currentLiveId,
+                    userId: dummyId,
+                    status: 'yes',
+                    comment: comment,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+
+                document.getElementById('guest-modal').style.display = 'none';
+                showSuccessMsg(`${name} さんをゲストとして追加しました！`);
+                
+                // リストを再描画
+                await loadRsvps();
+
+            } catch (error) {
+                console.error("ゲスト追加エラー:", error);
+                customAlert("ゲストの追加に失敗しました。", true);
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'リストに追加する';
         }
 
         function saveDictionary() {
@@ -267,6 +352,13 @@
 
         async function init() {
             try {
+                // 初期化時にFirestoreから最新の辞書を読み込んでおく
+                const dictDoc = await getDoc(doc(db, "systemSettings", "nameDictionary"));
+                if (dictDoc.exists()) {
+                    nameDictionary = { ...nameDictionary, ...dictDoc.data() };
+                    sessionStorage.setItem('adminNameDictionary', JSON.stringify(nameDictionary));
+                }
+
                 const liveSelect = document.getElementById('live-select');
                 const livesQuery = query(collection(db, "lives"));
                 const livesSnap = await getDocs(livesQuery);
@@ -286,10 +378,12 @@
             const dashboard = document.getElementById('rsvp-dashboard');
             const loadingMsg = document.getElementById('loading-msg');
             const btnCsv = document.getElementById('btn-download-csv');
+            const btnGuest = document.getElementById('btn-open-guest-modal');
             
             if (!currentLiveId) {
                 dashboard.style.display = 'none';
                 btnCsv.style.display = 'none';
+                btnGuest.style.display = 'none';
                 loadingMsg.style.display = 'block';
                 loadingMsg.textContent = 'ライブを選択してください';
                 return;
@@ -302,9 +396,11 @@
             const loadingMsg = document.getElementById('loading-msg');
             const tbody = document.getElementById('rsvp-tbody');
             const btnCsv = document.getElementById('btn-download-csv');
+            const btnGuest = document.getElementById('btn-open-guest-modal');
             
             dashboard.style.display = 'none';
             btnCsv.style.display = 'none';
+            btnGuest.style.display = 'none';
             loadingMsg.style.display = 'block';
             loadingMsg.textContent = 'データを取得中...';
             currentCsvData = []; 
@@ -316,7 +412,6 @@
                     return;
                 }
 
-                // ▼ 保存されている概要をテキストエリアにセット ▼
                 const liveData = liveDoc.data();
                 document.getElementById('rsvp-details-text').value = liveData.rsvpDetails || "";
                 
@@ -335,8 +430,8 @@
 
                 if (allUserSet.size === 0) {
                     loadingMsg.textContent = 'このライブには打ち上げ回答の対象者（および回答者）がいません。';
-                    // 概要だけは編集できるように dashboard は表示する
                     dashboard.style.display = 'block';
+                    btnGuest.style.display = 'inline-block'; // 誰もいなくてもゲストは追加できるようにする
                     document.querySelector('.summary-box').style.display = 'none';
                     document.querySelector('.data-table').style.display = 'none';
                     return;
@@ -353,6 +448,7 @@
                 sortedUserIds.forEach(userId => {
                     const ans = answers[userId];
                     const isTarget = targetUserIds.includes(userId); 
+                    const isGuest = String(userId).startsWith('guest_'); // ゲスト判定
                     const currentStatus = ans ? ans.status : 'pending';
                     const currentComment = ans ? (ans.comment || "") : "";
 
@@ -364,10 +460,22 @@
                     if (currentStatus === 'yes') rowClass = 'row-yes';
                     if (currentStatus === 'no') rowClass = 'row-no';
 
+                    // 役割の表示設定
+                    let roleStr = "一般参加";
+                    let roleTagHtml = '<span class="role-tag">一般参加</span>';
+                    
+                    if (isGuest) {
+                        roleStr = "ゲスト";
+                        roleTagHtml = '<span class="role-tag role-guest">ゲスト</span>';
+                    } else if (isTarget) {
+                        roleStr = "出演者";
+                        roleTagHtml = '<span class="role-tag role-performer">出演者</span>';
+                    }
+
                     currentCsvData.push({
                         userId: userId,
                         name: nameDictionary[userId] || "",
-                        role: isTarget ? "出演者" : "一般参加",
+                        role: roleStr,
                         status: currentStatus,
                         comment: currentComment
                     });
@@ -375,10 +483,8 @@
                     const tr = document.createElement('tr');
                     tr.className = rowClass;
 
-                    const roleTag = isTarget ? '<span class="role-tag role-performer">出演者</span>' : '<span class="role-tag">一般参加</span>';
-
                     tr.innerHTML = `
-                        <td class="name-cell">${translateId(userId)}<br>${roleTag}</td>
+                        <td class="name-cell">${translateId(userId)}<br>${roleTagHtml}</td>
                         <td>
                             <select class="select-status" id="status-${userId}">
                                 <option value="pending" ${currentStatus === 'pending' ? 'selected' : ''}>❓ 未定</option>
@@ -423,6 +529,7 @@
                 loadingMsg.style.display = 'none';
                 dashboard.style.display = 'block';
                 btnCsv.style.display = 'inline-block';
+                btnGuest.style.display = 'inline-block'; // ゲスト追加ボタンを表示
 
             } catch (error) {
                 console.error(error);
