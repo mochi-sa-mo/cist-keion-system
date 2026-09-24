@@ -199,12 +199,12 @@
             loadingMsg.textContent = 'データを取得中...';
 
             try {
-                // 1. ライブデータの取得 (targetUserIdsを取得するため)[cite: 7]
+                // 1. ライブデータの取得 (targetUserIdsを取得するため)
                 const liveDoc = await getDoc(doc(db, "lives", currentLiveId));
                 let userIds = [];
                 
                 if (liveDoc.exists() && liveDoc.data().targetUserIds) {
-                    userIds = liveDoc.data().targetUserIds;[cite: 7]
+                    userIds = liveDoc.data().targetUserIds;
                 }
 
                 // (フェイルセーフ) もしtargetUserIdsが空なら、承認済みエントリーから自動抽出する
