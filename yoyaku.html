@@ -32,8 +32,6 @@
             color: #333;
         }
         
-        /* ヘッダーのCSSは Component.js に移動したため削除しました */
-        
         .main-container {
             display: flex;
             gap: 20px;
@@ -51,14 +49,12 @@
             min-width: 0;
         }
         
-        /* 表の上の説明文などを1行で表示し、はみ出た部分はスクロールさせる */
         .calendar-section p, 
         .calendar-section span,
         .calendar-section h2 {
             white-space: nowrap;
         }
 
-        /* WebKit系(iPhone/Safari)で右端の余白が消えるバグを防ぐおまじない */
         .calendar-section::after {
             content: "";
             display: block;
@@ -70,12 +66,12 @@
 
         .grid {
             display: grid;
-            grid-template-columns: 60px repeat(7, minmax(95px, 1fr));
+            /* ▼ 修正：PC画面では1fr(等分)で収め、最小幅は0にする */
+            grid-template-columns: 60px repeat(7, minmax(0, 1fr));
             gap: 1px;
             background-color: var(--border-color);
             border: 1px solid var(--border-color);
             width: 100%; 
-            min-width: max-content; /* 罫線切れを防ぐ */
         }
         .header-cell, .period-cell {
             background-color: #eee;
@@ -212,7 +208,6 @@
         .btn-submit { width: 100%; padding: 10px; font-size: 1em; margin-top: 5px; }
         .btn-submit:disabled { background-color: #ccc; cursor: not-allowed; }
 
-        /* ▼ 汎用アラートモーダル用 */
         .modal {
             display: none;
             position: fixed;
@@ -240,12 +235,13 @@
             .main-container { flex-direction: column; gap: 15px; }
             .calendar-section, .form-section { width: 100%; flex: none; }
             .form-section { position: static; }
+            
+            /* ▼ スマホ画面の時だけ、表の最小幅を固定して横スクロールさせる */
+            .grid { min-width: 700px; }
         }
     </style>
 </head>
 <body>
-
-    <!-- ヘッダー部分は Component.js で生成するため削除しました -->
 
     <div class="main-container">
         <div class="calendar-section">
@@ -277,7 +273,6 @@
         </div>
     </div>
 
-    <!-- カスタムアラートモーダル -->
     <div class="modal" id="alert-modal">
         <div class="modal-content" id="alert-modal-content">
             <p id="alert-modal-message" style="color: #333; line-height: 1.5; font-weight: bold; margin: 15px 0; font-size: 1em;"></p>
@@ -292,13 +287,11 @@
         }
 
         import { db, auth } from "./firebase.js";
-        // ▼ Component.js から setupHeader を取り込む
         import { setupHeader } from "./Component.js";
 
         import { collection, onSnapshot, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
-        // ▼ 画面を開いた瞬間にヘッダーを「戻るボタンのみ（back）」で生成！
         setupHeader('来週の予約', 'back');
 
         const days = ['日', '月', '火', '水', '木', '金', '土'];
@@ -359,7 +352,6 @@
 
                 submitBtn.disabled = false; 
 
-                // ▼ バンドが変わったらカレンダーを再描画（自バンドの申請済をチェックするため）
                 bandSelect.addEventListener('change', initYoyakuGrid);
                 initYoyakuGrid();
 
@@ -416,7 +408,6 @@
                 const dayCell = document.createElement('div');
                 dayCell.className = 'header-cell';
                 
-                // ▼ 変更：日付も一緒に表示する
                 const dateParts = nextWeekDates[dIndex].split('-');
                 const m = parseInt(dateParts[1], 10);
                 const d = parseInt(dateParts[2], 10);
@@ -445,18 +436,15 @@
                         const targetDate = nextWeekDates[dIndex];
                         const cellRes = dbConfirmedReservations.filter(r => r.date === targetDate && r.period === pIndex);
                         
-                        // ▼ 追加：現在選択しているバンドが既に申請しているかチェック
                         const myExistingRes = cellRes.filter(r => r.bandId === selectedBandId && r.cancelRequested === false && r.deleted !== true);
 
                         if (selectedBandId && myExistingRes.length > 0) {
-                            // 自バンドが既に申請済みの場合はグレーアウトしてクリック不可にする
                             cell.classList.add('has-existing');
                             const tag = document.createElement('div');
                             tag.className = 'faint-band-tag';
                             tag.textContent = '自バンド申請済'; 
                             cell.appendChild(tag);
 
-                            // 万が一選択状態だった場合は解除する
                             const selIdx = selectedSlots.findIndex(s => s.day === dIndex && s.period === pIndex);
                             if (selIdx >= 0) {
                                 selectedSlots.splice(selIdx, 1);
@@ -491,7 +479,6 @@
             const dateParts = nextWeekDates[dayIndex].split('-');
             const m = parseInt(dateParts[1], 10);
             const d = parseInt(dateParts[2], 10);
-            // ▼ 変更：選択リストの表示も「月/日」を含める
             const slotStr = `${m}/${d}(${days[dayIndex]}) ${periods[periodIndex]}`;
             const slotData = { day: dayIndex, period: periodIndex, text: slotStr };
 
@@ -549,7 +536,6 @@
                 return;
             }
 
-            // ▼ 追加：送信直前の最終チェック（重複弾き）
             for (let slot of selectedSlots) {
                 const targetDate = nextWeekDates[slot.day];
                 const isDuplicate = dbConfirmedReservations.some(r => r.date === targetDate && r.period === slot.period && r.bandId === bandId && r.cancelRequested === false && r.deleted !== true);
@@ -572,7 +558,7 @@
                         period: slot.period,
                         bandId: bandId,       
                         bandName: bandName,   
-                        userId: currentUserId, // ▼ 修正：予約者の学籍番号を保存する処理を追加
+                        userId: currentUserId,
                         notes: notes,
                         confirmed: false,       
                         cancelRequested: false,
@@ -584,7 +570,6 @@
 
                 await Promise.all(promises);
 
-                // ▼ 変更点: userIdを追加し、detailにも誰が操作したかを含める
                 await addDoc(collection(db, "logs"), {
                     timestamp: new Date().toISOString(),
                     category: "reservation",
