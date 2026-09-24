@@ -36,11 +36,11 @@
         select.filter-select { padding: 6px; font-size: 0.9em; width: auto; margin-bottom: 0; margin-left: 10px; border: 2px solid var(--primary-color);}
 
         /* サマリー（集計） */
-        .summary-box { display: flex; gap: 10px; margin-bottom: 20px; text-align: center;}
+        .summary-box { display: flex; gap: 10px; margin-bottom: 15px; text-align: center;}
         .summary-item { flex: 1; padding: 15px 5px; border-radius: 8px; border: 1px solid #eee; background: #fafafa; }
         .summary-item.paid { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
         .summary-item.unpaid { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
-        .summary-num { font-size: 1.8em; font-weight: bold; display: block; margin-top: 5px; }
+        .summary-num { font-size: 1.6em; font-weight: bold; display: block; margin-top: 5px; }
 
         /* リストデザイン */
         .payment-list { display: flex; flex-direction: column; gap: 10px; }
@@ -78,7 +78,7 @@
 <body>
 
     <header>
-        <h1>💰 集金管理</h1>
+        <h1>💰 打ち上げ集金管理</h1>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button class="btn btn-info" id="btn-open-dict">📖 名簿辞書設定</button>
             <a href="admin.html" class="btn-nav">← 戻る</a>
@@ -94,15 +94,36 @@
         </select>
 
         <div id="dashboard" style="display: none;">
-            <div class="summary-box">
-                <div class="summary-item">参加予定<span class="summary-num" id="count-total">0</span></div>
-                <div class="summary-item paid">支払済<span class="summary-num" id="count-paid">0</span></div>
-                <div class="summary-item unpaid">未払い<span class="summary-num" id="count-unpaid">0</span></div>
+            
+            <!-- ▼ 追加：金額入力エリア ▼ -->
+            <div style="margin-bottom: 15px; background: #e8f5e9; padding: 15px; border-radius: 8px; border-left: 5px solid #4caf50; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <strong style="color: #2e7d32; font-size: 1.1em;">🍻 1人あたりの打ち上げ代:</strong>
+                <div style="display: flex; align-items: center;">
+                    <input type="number" id="fee-input" value="3000" style="padding: 8px; width: 100px; font-size: 1.1em; border: 1px solid #ccc; border-radius: 4px; text-align: right;" min="0" step="100"> 
+                    <span style="margin-left: 5px; font-weight: bold;">円</span>
+                </div>
             </div>
 
-            <!-- ▼ 学年ごとの絞り込みフィルター ▼ -->
-            <div style="display: flex; align-items: center; margin-bottom: 15px; background: #e8f5e9; padding: 10px; border-radius: 8px;">
-                <strong style="color: #2e7d32; font-size: 0.9em;">🔍 学年（ID）で絞り込み:</strong>
+            <!-- ▼ 追加：金額サマリー ▼ -->
+            <div class="summary-box">
+                <div class="summary-item" style="background:#e3f2fd; border-color:#bbdefb; color:#1565c0;">
+                    合計目標金額<span class="summary-num" id="amount-target">¥0</span>
+                </div>
+                <div class="summary-item paid" style="border-width: 2px;">
+                    現在集まっている金額<span class="summary-num" id="amount-collected">¥0</span>
+                </div>
+            </div>
+
+            <!-- 人数サマリー -->
+            <div class="summary-box">
+                <div class="summary-item">参加予定<span class="summary-num" id="count-total">0人</span></div>
+                <div class="summary-item paid">支払済<span class="summary-num" id="count-paid">0人</span></div>
+                <div class="summary-item unpaid">未払い<span class="summary-num" id="count-unpaid">0人</span></div>
+            </div>
+
+            <!-- 学年ごとの絞り込みフィルター -->
+            <div style="display: flex; align-items: center; margin-bottom: 15px; background: #f5f5f5; padding: 10px; border-radius: 8px;">
+                <strong style="color: #555; font-size: 0.9em;">🔍 学年（ID）で絞り込み:</strong>
                 <select id="year-filter" class="filter-select">
                     <option value="all">すべて表示</option>
                 </select>
@@ -115,11 +136,12 @@
         <div id="loading-msg" style="color: #999; text-align: center; margin-top: 20px;">ライブを選択してください</div>
     </div>
 
+    <!-- 辞書登録モーダル -->
     <div class="modal" id="dict-modal">
         <div class="modal-content" style="width: 500px; max-width: 95%;">
             <h3 style="margin-top: 0; border-bottom: 2px solid #00bcd4; padding-bottom: 5px; color: #0097a7;">📖 ローカル名簿辞書の登録</h3>
             <div class="form-group">
-                <textarea id="dict-textarea" placeholder="特定のメッセージを入力すると反映される" style="min-height: 150px;"></textarea>
+                <textarea id="dict-textarea" placeholder="例：&#10;230000 山田太郎&#10;240001 鈴木花子" style="min-height: 150px;"></textarea>
             </div>
             <div class="confirm-actions">
                 <button class="btn-nav" id="btn-close-dict">キャンセル</button>
@@ -141,8 +163,10 @@
 
         window.onload = function() {
             document.getElementById('live-select').onchange = handleLiveChange;
-            // ▼ フィルター変更時に再描画するイベントを追加 ▼
             document.getElementById('year-filter').addEventListener('change', renderList);
+            
+            // ▼ 追加：金額入力が変更されたら再計算するイベント
+            document.getElementById('fee-input').addEventListener('input', updateCountersAndAmounts);
             
             document.getElementById('btn-open-dict').onclick = () => {
                 let text = "";
@@ -234,7 +258,7 @@
                 const snapRsvp = await getDocs(qRsvp);
                 
                 participants = [];
-                let availableYears = new Set(); // ▼ 存在する学年(ID先頭2桁)を記憶する
+                let availableYears = new Set(); 
                 
                 snapRsvp.forEach(d => {
                     const data = d.data();
@@ -244,15 +268,12 @@
                             name: nameDictionary[data.userId] || "名前未登録", 
                             paymentStatus: data.paymentStatus || 'unpaid'
                         });
-                        // IDの先頭2桁を取得してセットに追加 (例: 240001 -> '24')
                         availableYears.add(data.userId.substring(0, 2));
                     }
                 });
 
-                // 学籍番号順にソート
                 participants.sort((a, b) => a.userId.localeCompare(b.userId));
 
-                // ▼ フィルターのドロップダウンを生成 ▼
                 const filterSelect = document.getElementById('year-filter');
                 filterSelect.innerHTML = '<option value="all">すべて表示</option>';
                 Array.from(availableYears).sort().forEach(year => {
@@ -274,27 +295,20 @@
             const listContainer = document.getElementById('payment-list');
             listContainer.innerHTML = '';
             
-            // ▼ フィルターで選択された学年を取得 ▼
             const selectedYear = document.getElementById('year-filter').value;
             
-            // ▼ フィルターに合致する人だけを絞り込む ▼
             const filteredParticipants = participants.filter(p => {
                 if (selectedYear === 'all') return true;
                 return p.userId.startsWith(selectedYear);
             });
 
-            let paidCount = 0;
-
             if (filteredParticipants.length === 0) {
                 listContainer.innerHTML = '<p style="text-align:center; color:#999;">表示する対象者がいません。</p>';
-                updateCounters(0, 0, 0);
+                updateCountersAndAmounts();
                 return;
             }
 
-            // 絞り込んだリストで表示を生成
             filteredParticipants.forEach(p => {
-                if (p.paymentStatus === 'paid') paidCount++;
-
                 const card = document.createElement('div');
                 card.className = `payment-card ${p.paymentStatus === 'paid' ? 'is-paid' : ''}`;
                 card.id = `card-${p.userId}`;
@@ -319,8 +333,7 @@
                 });
             });
 
-            // 上のサマリー（合計人数）は「絞り込んだ人数」で計算して表示します
-            updateCounters(filteredParticipants.length, paidCount, filteredParticipants.length - paidCount);
+            updateCountersAndAmounts();
         }
 
         async function updatePayment(userId, isPaid, cardElement) {
@@ -339,11 +352,7 @@
                 const target = participants.find(p => p.userId === userId);
                 if (target) target.paymentStatus = newStatus;
                 
-                // 再計算するために renderList は呼ばず、カウンターだけ更新する
-                const selectedYear = document.getElementById('year-filter').value;
-                const filtered = participants.filter(p => selectedYear === 'all' || p.userId.startsWith(selectedYear));
-                const paidCount = filtered.filter(p => p.paymentStatus === 'paid').length;
-                updateCounters(filtered.length, paidCount, filtered.length - paidCount);
+                updateCountersAndAmounts();
 
                 showToast(isPaid ? `✅ ${target.name} さんの支払いを登録しました` : `❌ ${target.name} さんを未払いに戻しました`);
 
@@ -356,10 +365,29 @@
             }
         }
 
-        function updateCounters(total, paid, unpaid) {
-            document.getElementById('count-total').textContent = total;
-            document.getElementById('count-paid').textContent = paid;
-            document.getElementById('count-unpaid').textContent = unpaid;
+        // ▼ 追加・修正：人数と金額を計算して画面を更新する関数
+        function updateCountersAndAmounts() {
+            const selectedYear = document.getElementById('year-filter').value;
+            const filtered = participants.filter(p => selectedYear === 'all' || p.userId.startsWith(selectedYear));
+            
+            const totalCount = filtered.length;
+            const paidCount = filtered.filter(p => p.paymentStatus === 'paid').length;
+            const unpaidCount = totalCount - paidCount;
+
+            // 人数の更新
+            document.getElementById('count-total').textContent = totalCount + '人';
+            document.getElementById('count-paid').textContent = paidCount + '人';
+            document.getElementById('count-unpaid').textContent = unpaidCount + '人';
+
+            // 金額の計算と更新
+            const feeInput = document.getElementById('fee-input').value;
+            const fee = parseInt(feeInput, 10) || 0; 
+
+            const targetAmount = totalCount * fee;
+            const collectedAmount = paidCount * fee;
+
+            document.getElementById('amount-target').textContent = '¥' + targetAmount.toLocaleString();
+            document.getElementById('amount-collected').textContent = '¥' + collectedAmount.toLocaleString();
         }
     </script>
 </body>
