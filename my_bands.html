@@ -24,6 +24,13 @@
         .part-badge { display: inline-block; background: #eee; color: #555; text-align: center; padding: 2px 5px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
         .leader-badge { font-size: 0.8em; color: #ff9800; font-weight: bold; margin-left: auto; background: #fff3e0; padding: 2px 6px; border-radius: 12px; }
         
+        /* ▼ 出演ライブ履歴用のCSS ▼ */
+        .history-section { margin-top: 15px; padding-top: 12px; border-top: 1px dashed #ddd; margin-bottom: 15px;}
+        .history-title { font-size: 0.9em; font-weight: bold; color: #4A90E2; margin-bottom: 8px; }
+        .history-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+        .history-badge { font-size: 0.8em; background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 12px; font-weight: bold; }
+        .history-empty { font-size: 0.85em; color: #999; }
+
         .btn-edit-mode { background: #fff3e0; color: #e65100; border: 1px solid #e65100; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; }
         .btn-edit-mode:hover { background: #ffe0b2; }
 
@@ -166,6 +173,7 @@
             container.innerHTML = '<p style="color: #999; text-align: center;">読込中...</p>';
             
             try {
+                // 1. バンド一覧の取得
                 const q = query(collection(db, "bands"), where("memberIds", "array-contains", currentUserId));
                 const snap = await getDocs(q);
                 
@@ -179,15 +187,34 @@
 
                 snap.forEach(docSnap => {
                     const data = docSnap.data();
-                    
-                    // ▼ 追加：メンバーを学籍番号（ID）順にソートする処理 ▼
                     if (data.memberDetails && Array.isArray(data.memberDetails)) {
                         data.memberDetails.sort((a, b) => String(a.id).localeCompare(String(b.id)));
                     }
+                    myBandsData[docSnap.id] = data; 
+                });
 
-                    const bandId = docSnap.id;
-                    myBandsData[bandId] = data; 
+                const myBandIds = Object.keys(myBandsData);
 
+                // 2. 出演承認済みライブ履歴の取得
+                const liveHistoryMap = {}; 
+                myBandIds.forEach(id => liveHistoryMap[id] = []);
+
+                try {
+                    const entriesQ = query(collection(db, "liveEntries"), where("performerIds", "array-contains", currentUserId));
+                    const entriesSnap = await getDocs(entriesQ);
+                    entriesSnap.forEach(docSnap => {
+                        const data = docSnap.data();
+                        if (data.status === 'approved' && liveHistoryMap[data.bandId] !== undefined) {
+                            liveHistoryMap[data.bandId].push(data.liveName);
+                        }
+                    });
+                } catch (e) {
+                    console.warn("ライブ履歴の取得に失敗しました", e);
+                }
+
+                // 3. バンドカードの描画
+                myBandIds.forEach(bandId => {
+                    const data = myBandsData[bandId];
                     const isLeader = data.leaders && data.leaders.includes(currentUserId);
 
                     const card = document.createElement('div');
@@ -204,7 +231,6 @@
                     data.memberDetails.forEach(m => {
                         const li = document.createElement('li');
                         
-                        // 過去データと新データの互換性対応
                         const partsArray = m.parts || (m.part ? [m.part] : []);
                         let partsHtml = `<div class="part-badges">`;
                         partsArray.forEach(p => {
@@ -227,6 +253,24 @@
                         ul.appendChild(li);
                     });
                     card.appendChild(ul);
+
+                    // ▼ 追加：出演ライブ履歴の表示セクション
+                    const historySection = document.createElement('div');
+                    historySection.className = 'history-section';
+                    let historyHtml = `<div class="history-title">🎵 出演ライブ履歴</div>`;
+                    
+                    if (liveHistoryMap[bandId].length > 0) {
+                        historyHtml += `<div class="history-badges">`;
+                        const uniqueLives = [...new Set(liveHistoryMap[bandId])]; // 重複排除
+                        uniqueLives.forEach(liveName => {
+                            historyHtml += `<span class="history-badge">${liveName}</span>`;
+                        });
+                        historyHtml += `</div>`;
+                    } else {
+                        historyHtml += `<div class="history-empty">まだ出演したライブはありません</div>`;
+                    }
+                    historySection.innerHTML = historyHtml;
+                    card.appendChild(historySection);
 
                     if (isLeader) {
                         const editBtn = document.createElement('button');
