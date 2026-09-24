@@ -68,10 +68,22 @@
 
     <!-- 詳細確認モーダル -->
     <div id="details-modal" class="modal-overlay">
-        <div class="modal-content">
+        <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
             <h3 style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 1.1em; border-bottom: 1px solid #ccc; padding-bottom: 5px;">登録内容の詳細</h3>
             <div id="modal-details-content" style="font-size: 0.95em; line-height: 1.6; color: #444;"></div>
             <button type="button" class="btn-close-modal" id="btn-close-modal">閉じる</button>
+        </div>
+    </div>
+
+    <!-- 思い出・セトリ編集用モーダル (新規追加) -->
+    <div id="setlist-modal" class="modal-overlay" style="z-index: 1100;">
+        <div class="modal-content">
+            <h3 style="margin-top: 0; margin-bottom: 10px; color: #333; font-size: 1.1em;">🎵 演奏曲・思い出を登録</h3>
+            <textarea id="setlist-input" style="width: 100%; height: 120px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box;" placeholder="例：&#10;1. 〇〇&#10;2. 〇〇&#10;初めてのライブで緊張したけど楽しかった！"></textarea>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button type="button" class="btn-close-modal" id="btn-cancel-setlist" style="margin-top: 0; flex: 1;">キャンセル</button>
+                <button type="button" class="btn-close-modal" id="btn-save-setlist" style="margin-top: 0; flex: 1; background: var(--primary-color);">保存する</button>
+            </div>
         </div>
     </div>
 
@@ -80,7 +92,8 @@
         // ▼ Component.js から setupHeader を取り込む
         import { setupHeader } from "./Component.js";
         
-        import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        // ▼ 変更点：doc と updateDoc をインポートに追加
+        import { collection, getDocs, query, where, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
         // ▼ 画面を開いた瞬間にヘッダーを「戻るボタンのみ（back）」で生成！
@@ -88,6 +101,7 @@
 
         let currentUserId = "";
         let myEntriesData = {}; 
+        let editingEntryId = null; // 現在思い出を編集中のエントリーID
 
         onAuthStateChanged(auth, (user) => {
             if (user) { currentUserId = user.email.split('@')[0]; loadData(); } 
@@ -98,6 +112,41 @@
             document.getElementById('details-modal').style.display = 'none';
             document.body.classList.remove('modal-open');
         });
+
+        // 思い出編集モーダルのキャンセル処理
+        document.getElementById('btn-cancel-setlist').addEventListener('click', () => {
+            document.getElementById('setlist-modal').style.display = 'none';
+        });
+
+        // 思い出編集モーダルの保存処理
+        document.getElementById('btn-save-setlist').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-save-setlist');
+            const newText = document.getElementById('setlist-input').value.trim();
+            btn.disabled = true;
+            btn.textContent = "保存中...";
+
+            try {
+                // DBを更新
+                await updateDoc(doc(db, "liveEntries", editingEntryId), {
+                    setlist: newText
+                });
+                
+                // ローカルのデータも更新
+                myEntriesData[editingEntryId].setlist = newText;
+
+                // モーダルを閉じて詳細画面を再描画
+                document.getElementById('setlist-modal').style.display = 'none';
+                showDetailsModal(editingEntryId); // 表示を更新
+
+            } catch (error) {
+                console.error("保存エラー:", error);
+                alert("保存に失敗しました。");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "保存する";
+            }
+        });
+
 
         async function loadData() {
             const activeContainer = document.getElementById('active-container');
@@ -167,14 +216,26 @@
 
         function showDetailsModal(entryId) {
             const data = myEntriesData[entryId];
+            
             let html = `<p style="margin-bottom: 5px;"><strong>🎵 ライブ:</strong> ${data.liveName}</p><p style="margin-bottom: 15px;"><strong>🎸 バンド:</strong> ${data.bandName}</p>`;
-            html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px;"><strong>🎤 機材・セッティング</strong></p><ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
+            
+            // ▼ 追加：思い出・セトリ表示セクション ▼
+            const setlistText = data.setlist ? data.setlist.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
+            html += `
+                <div style="margin-bottom: 5px; background: #fff3e0; padding: 5px 10px; border-radius: 4px; margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <strong style="color: #e65100;">🎵 演奏曲・思い出</strong>
+                    <button id="btn-edit-setlist" class="btn-small" style="background: #fff; border: 1px solid #ffb74d; color: #e65100; padding: 2px 8px; font-size: 0.8em; border-radius: 4px;">✏️ 編集</button>
+                </div>
+                <div style="padding: 10px; font-size: 0.9em; color: #555; background: #fff; border-radius: 4px; border: 1px dashed #ffb74d; min-height: 40px; word-break: break-word;">${setlistText}</div>
+            `;
+            
+            html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>🎤 機材・セッティング</strong></p><ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
             html += `<li><strong>マイク:</strong> ${data.micCount || 0} 本</li><li><strong>キーボード:</strong> ${data.keyboardType || '使用しない'}</li><li><strong>備考:</strong><br>${data.entryNotes ? data.entryNotes.replace(/\n/g, '<br>') : 'なし'}</li></ul>`;
-            html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>【演奏メンバー構成】</strong></p><ul style="margin-top: 5px; padding-left: 20px;">`;
+            
+            html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>【演奏メンバー構成】</strong></p><ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
             data.performers.forEach(p => {
                 let role = p.type === "正規" ? "" : ` <span style="font-size: 0.8em; color: #ff9800; font-weight: bold;">(${p.type})</span>`;
                 
-                // ▼ 修正：配列(parts)を読み込んでカンマ区切りで表示するように変更 ▼
                 const partsArray = p.parts || (p.part ? [p.part] : ["不明"]);
                 const partsStr = partsArray.join(', ');
                 
@@ -183,6 +244,14 @@
             html += `</ul>`;
             
             document.getElementById('modal-details-content').innerHTML = html;
+            
+            // ▼ 編集ボタンにイベントを追加
+            document.getElementById('btn-edit-setlist').addEventListener('click', () => {
+                editingEntryId = entryId;
+                document.getElementById('setlist-input').value = data.setlist || "";
+                document.getElementById('setlist-modal').style.display = 'flex';
+            });
+
             document.getElementById('details-modal').style.display = 'flex';
             document.body.classList.add('modal-open');
         }
