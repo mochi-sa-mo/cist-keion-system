@@ -130,6 +130,7 @@ export function setupHeader(title, type = 'back') {
                 <li><a href="admin_live_manager.html" style="color: #e91e63;">ライブ審査・管理</a></li>
                 <li><a href="admin_rsvp_manager.html" style="color: #4caf50;">打ち上げ参加状況管理</a></li>
                 <li><a href="admin_rsvp_pay.html" style="color: #ff00ff;">打ち上げ集金状況管理</a></li>
+                <li><a href="admin_fee_collection.html" style="color: #ff00ff;">出演費集金状況管理</a></li>
                 <li><a href="admin_board.html" id="nav-admin-board-link" style="color: #ff9800; display: flex; align-items: center;"><span>掲示板の審査・管理</span></a></li>
             `;
         } else {
