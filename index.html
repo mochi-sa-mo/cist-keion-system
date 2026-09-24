@@ -532,7 +532,11 @@
                 if (currentWeekDates[dIndex] === todayStr) {
                     dayCell.classList.add('today-col');
                 }
-                dayCell.textContent = day;
+                // ▼ 変更：日付も一緒に表示する
+                const dateParts = currentWeekDates[dIndex].split('-');
+                const m = parseInt(dateParts[1], 10);
+                const d = parseInt(dateParts[2], 10);
+                dayCell.textContent = `${m}/${d}（${day}）`;
                 grid.appendChild(dayCell);
             });
 
