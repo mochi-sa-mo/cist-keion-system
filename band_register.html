@@ -116,7 +116,8 @@
         // ▼ Component.js から setupHeader を取り込む
         import { setupHeader } from "./Component.js";
         
-        import { collection, addDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        // ▼ 変更点：getDocs, query, where を追加でインポート
+        import { collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
         // ▼ 画面を開いた瞬間にヘッダーを「戻るボタンのみ（back）」で生成！
@@ -219,11 +220,12 @@
         });
 
         // フォーム送信（確認モーダルを表示）
-        document.getElementById('band-form').addEventListener('submit', (e) => {
+        document.getElementById('band-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const bandName = document.getElementById('band-name').value.trim();
             const errorMsg = document.getElementById('error-msg');
             const successMsg = document.getElementById('success-msg');
+            const btnSubmit = document.getElementById('btn-submit');
 
             errorMsg.style.display = 'none';
             successMsg.style.display = 'none';
@@ -231,6 +233,30 @@
             if (!bandName) {
                 errorMsg.textContent = "バンド名を入力してください。";
                 errorMsg.style.display = 'block'; return;
+            }
+
+            // ▼ 追加：同名バンドの重複チェック ▼
+            try {
+                btnSubmit.disabled = true;
+                btnSubmit.textContent = '確認中...';
+                
+                const bandQuery = query(collection(db, "bands"), where("name", "==", bandName));
+                const querySnapshot = await getDocs(bandQuery);
+                
+                if (!querySnapshot.empty) {
+                    errorMsg.textContent = "※すでに同じ名前のバンドが登録されています。別の名前を指定してください。";
+                    errorMsg.style.display = 'block';
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = '確認画面へ進む';
+                    return; // ここで処理を止める（ブロック）
+                }
+            } catch (error) {
+                console.error("重複チェックエラー:", error);
+                errorMsg.textContent = "データベースの確認中にエラーが発生しました。";
+                errorMsg.style.display = 'block';
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = '確認画面へ進む';
+                return;
             }
 
             const memberRows = document.querySelectorAll('.member-row');
@@ -261,21 +287,25 @@
 
             if (hasError) {
                 errorMsg.textContent = "学籍番号が入力されていない行があります。";
-                errorMsg.style.display = 'block'; return;
+                errorMsg.style.display = 'block'; 
+                btnSubmit.disabled = false; btnSubmit.textContent = '確認画面へ進む'; return;
             }
             if (formatError) {
                 errorMsg.textContent = "学籍番号は「半角数字6桁」で入力してください。";
-                errorMsg.style.display = 'block'; return;
+                errorMsg.style.display = 'block'; 
+                btnSubmit.disabled = false; btnSubmit.textContent = '確認画面へ進む'; return;
             }
             if (partError) {
                 errorMsg.textContent = "担当パートが1つも選択されていないメンバーがいます。";
-                errorMsg.style.display = 'block'; return;
+                errorMsg.style.display = 'block'; 
+                btnSubmit.disabled = false; btnSubmit.textContent = '確認画面へ進む'; return;
             }
 
             const uniqueMemberIds = [...new Set(memberIds)];
             if (uniqueMemberIds.length !== memberIds.length) {
                 errorMsg.textContent = "同じ学籍番号が複数回入力されています。";
-                errorMsg.style.display = 'block'; return;
+                errorMsg.style.display = 'block'; 
+                btnSubmit.disabled = false; btnSubmit.textContent = '確認画面へ進む'; return;
             }
 
             // 登録データを変数に保持
@@ -301,6 +331,9 @@
 
             document.getElementById('modal-details').innerHTML = confirmHtml;
             document.getElementById('confirm-modal').style.display = 'flex';
+            
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = '確認画面へ進む';
         });
 
         // モーダルの「キャンセル」ボタン
