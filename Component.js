@@ -124,31 +124,30 @@ export function setupHeader(title, type = 'back') {
 
         if (role === 'admin' || role === 'sysadmin' || role === 'adminadmin') {
             // 管理者用メニュー
-            // ▼ 変更：管理者側の掲示板リンクにも id を付与
             menuItems = `
                 <li class="menu-category">管理者メニュー</li>
-                <li><a href="admin_live_manager.html" style="color: #e91e63;">ライブ審査・管理</a></li>
-                <li><a href="admin_rsvp_manager.html" style="color: #4caf50;">打ち上げ参加状況管理</a></li>
-                <li><a href="admin_rsvp_pay.html" style="color: #ff00ff;">打ち上げ集金状況管理</a></li>
-                <li><a href="admin_fee_collection.html" style="color: #ff00ff;">出演費集金状況管理</a></li>
-                <li><a href="admin_board.html" id="nav-admin-board-link" style="color: #ff9800; display: flex; align-items: center;"><span>掲示板の審査・管理</span></a></li>
+                <li><a href="admin_live_manager.html" style="color: #d32f2f;">ライブ審査・管理</a></li>
+                <li><a href="admin_rsvp_manager.html" style="color: #2e7d32;">打ち上げ参加状況管理</a></li>
+                <li><a href="admin_rsvp_pay.html" style="color: #1976d2;">打ち上げ集金状況管理</a></li>
+                <li><a href="admin_fee_collection.html" style="color: #0d47a1;">出演費集金状況管理</a></li>
+                <li><a href="admin_board.html" id="nav-admin-board-link" style="color: #f57c00; display: flex; align-items: center;"><span>掲示板の審査・管理</span></a></li>
             `;
         } else {
             // 一般部員用メニュー
             menuItems = `
                 <li class="menu-category">部室予約</li>
-                <li><a href="tsuika.html" style="color: #4caf50;">今週の追加予約</a></li>
-                <li><a href="yoyaku.html" style="color: #4A90E2;">次週の予約</a></li>
+                <li><a href="tsuika.html" style="color: #388e3c;">今週の追加予約</a></li>
+                <li><a href="yoyaku.html" style="color: #1976d2;">次週の予約</a></li>
 
                 <li class="menu-category">バンド管理</li>
-                <li><a href="band_register.html" style="color: #ff9800;">新規バンドを登録する</a></li>
-                <li><a href="my_bands.html" style="color: #8e44ad;">所属バンドを確認する</a></li>
+                <li><a href="band_register.html" style="color: #f57c00;">新規バンドを登録する</a></li>
+                <li><a href="my_bands.html" style="color: #e65100;">所属バンドを確認する</a></li>
 
                 <li class="menu-category">ライブ・掲示板</li>
-                <li><a href="live_entry.html" style="color: #e91e63;">ライブエントリーをする</a></li>
-                <li><a href="entry_status.html" style="color: #e65100;">審査状況・履歴を確認する</a></li>
-                <li><a href="rsvp.html" style="color: #4caf50;">打ち上げの回答をする</a></li>
-                <li><a href="board.html" id="nav-board-link" style="color: #00bcd4; display: flex; align-items: center;"><span>掲示板へ</span></a></li>
+                <li><a href="live_entry.html" style="color: #d32f2f;">ライブエントリーをする</a></li>
+                <li><a href="entry_status.html" style="color: #c62828;">審査状況・履歴を確認する</a></li>
+                <li><a href="rsvp.html" style="color: #388e3c;">打ち上げの回答をする</a></li>
+                <li><a href="board.html" id="nav-board-link" style="color: #0097a7; display: flex; align-items: center;"><span>掲示板へ</span></a></li>
             `;
         }
 
