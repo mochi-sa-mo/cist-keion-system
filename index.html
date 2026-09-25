@@ -571,7 +571,7 @@
                             statusText = ' (落選)';
                         } else if (res.cancelRequested) {
                             statusClass = 'cancel-requested';
-                            statusText = ' (取消申請中)';
+                            statusText = ' (予約取り消し)';
                         } else if (res.confirmed) {
                             statusClass = '';
                             statusText = '';
@@ -628,7 +628,7 @@
                 if (data.isAdditional && !data.confirmed) statusMsg = '追加希望（承認待ち）';
                 if (data.isAdditional && data.confirmed) statusMsg = '確定済み（追加予約）';
                 if (data.rejected) statusMsg = '落選（管理者により却下されました）';
-                if (data.cancelRequested) statusMsg = '取消申請中';
+                if (data.cancelRequested) statusMsg = '予約取り消し';
 
                 fields = [
                     { label: 'バンド名', value: data.bandName },
