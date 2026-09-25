@@ -206,7 +206,7 @@
                     if (entry.setlist && entry.setlist.trim() !== "") {
                         // ▼ 修正：改行を <br> に変換して表示する
                         const formattedText = entry.setlist.replace(/\n/g, '<br>');
-                        memoryHtml = `<div style="font-size: 0.85em; color: #795548; background: #fff8e1; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #ffb74d; word-break: break-word;">📝<br>${formattedText}</div>`;
+                        memoryHtml = `<div style="font-size: 0.85em; color: #795548; background: #fff8e1; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #ffb74d; word-break: break-word;">みんなの思い出<br>${formattedText}</div>`;
                     }
 
                     const card = document.createElement('div');
