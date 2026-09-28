@@ -24,7 +24,8 @@
         
         <div class="form-group">
             <label><strong>メンテナンス状態</strong></label><br>
-            <label><input type="radio" name="mnt-status" value="false"> 通常稼働（ログイン可能）</label><br>
+            <!-- ▼ 修正：デフォルトで「通常稼働」にチェックを入れておく ▼ -->
+            <label><input type="radio" name="mnt-status" value="false" checked> 通常稼働（ログイン可能）</label><br>
             <label><input type="radio" name="mnt-status" value="true"> メンテナンス中（ログイン遮断）</label>
         </div>
         
@@ -97,10 +98,21 @@
 
         // 保存処理
         document.getElementById('btn-save').onclick = async () => {
-            const isMntActive = document.querySelector('input[name="mnt-status"]:checked').value === "true";
+            // ▼ 修正：万が一チェックされていなかった場合でもエラーで落ちないようにする ▼
+            const mntChecked = document.querySelector('input[name="mnt-status"]:checked');
+            if (!mntChecked) {
+                alert("メンテナンス状態（通常稼働 か メンテナンス中）を選択してください。");
+                return;
+            }
+            const isMntActive = mntChecked.value === "true";
             const mntMsg = document.getElementById('mnt-message').value.trim();
             
-            const isNoticeActive = document.querySelector('input[name="notice-status"]:checked').value === "true";
+            const noticeChecked = document.querySelector('input[name="notice-status"]:checked');
+            if (!noticeChecked) {
+                alert("お知らせの表示状態を選択してください。");
+                return;
+            }
+            const isNoticeActive = noticeChecked.value === "true";
             const noticeMsg = document.getElementById('notice-message').value.trim();
             
             try {
