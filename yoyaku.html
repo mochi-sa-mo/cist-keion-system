@@ -66,7 +66,7 @@
 
         .grid {
             display: grid;
-            /* ▼ 修正：PC画面では1fr(等分)で収め、最小幅は0にする */
+            /* PC画面では1fr(等分)で収め、最小幅は0にする */
             grid-template-columns: 60px repeat(7, minmax(0, 1fr));
             gap: 1px;
             background-color: var(--border-color);
@@ -236,7 +236,7 @@
             .calendar-section, .form-section { width: 100%; flex: none; }
             .form-section { position: static; }
             
-            /* ▼ スマホ画面の時だけ、表の最小幅を固定して横スクロールさせる */
+            /* スマホ画面の時だけ、表の最小幅を固定して横スクロールさせる */
             .grid { min-width: 700px; }
         }
     </style>
@@ -427,13 +427,14 @@
                     cell.className = 'cell';
                     cell.id = `cell-${dIndex}-${pIndex}`;
                     
-                    const isAdminDisabled = dbDisabledSlots.some(s => s.day === dIndex && s.period === pIndex && s.blocked === true);
+                    const targetDate = nextWeekDates[dIndex];
+                    // ▼ 修正：曜日(s.day)ではなく、具体的な日付(s.date === targetDate)で予約不可を判定する ▼
+                    const isAdminDisabled = dbDisabledSlots.some(s => s.date === targetDate && s.period === pIndex && s.blocked === true);
                     
                     if (isAdminDisabled) {
                         cell.classList.add('admin-disabled');
                         cell.textContent = '予約不可';
                     } else {
-                        const targetDate = nextWeekDates[dIndex];
                         const cellRes = dbConfirmedReservations.filter(r => r.date === targetDate && r.period === pIndex);
                         
                         const myExistingRes = cellRes.filter(r => r.bandId === selectedBandId && r.cancelRequested === false && r.deleted !== true);
