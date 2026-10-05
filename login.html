@@ -73,6 +73,32 @@
         }
         .notice-alert h3 { color: #004085; }
 
+        /* ▼ 追加：本日のライブ案内ポップアップカード用（赤・オレンジ系） ▼ */
+        .live-banner-alert {
+            background-color: #ffebee;
+            border: 2px solid #ef9a9a;
+            color: #c62828;
+            text-decoration: none;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .live-banner-alert:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(208, 2, 27, 0.15);
+        }
+        .live-banner-alert h3 {
+            color: #c62828;
+            margin-bottom: 6px;
+        }
+        .live-banner-link-hint {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-align: right;
+            color: #d0021b;
+        }
+
     </style>
 </head>
 <body>
@@ -91,6 +117,13 @@
             <h3>📢 お知らせ</h3>
             <div id="notice-content" class="alert-content"></div>
         </div>
+
+        <!-- ▼ 追加：本日のライブ案内領域（タップで live_timetable.html へ遷移） ▼ -->
+        <a href="live_timetable.html" id="live-banner-alert" class="alert-card live-banner-alert">
+            <h3>🎸 本日のライブ</h3>
+            <div id="live-banner-content" class="alert-content" style="font-weight: bold;"></div>
+            <span class="live-banner-link-hint">タイムテーブルを見る →</span>
+        </a>
 
         <div class="error-message" id="error-msg">IDまたはパスワードが間違っています。</div>
         
@@ -144,6 +177,26 @@
                 } else {
                     noticeBox.style.display = 'none';
                 }
+            }
+        });
+
+        // ▼ 追加：本日のライブ案内（liveBanner）のリアルタイム監視 ▼
+        onSnapshot(doc(db, "systemSettings", "liveBanner"), (docSnap) => {
+            const liveBannerBox = document.getElementById('live-banner-alert');
+            const liveBannerContent = document.getElementById('live-banner-content');
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.active) {
+                    liveBannerBox.style.display = 'block';
+                    liveBannerContent.textContent = (data.message && data.message.trim() !== "") 
+                        ? data.message 
+                        : "🔥 本日のライブはこちらから確認！";
+                } else {
+                    liveBannerBox.style.display = 'none';
+                }
+            } else {
+                liveBannerBox.style.display = 'none';
             }
         });
 
