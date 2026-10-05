@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本日のライブ・タイムテーブル - 軽音部</title>
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            --primary-color: #4A90E2;
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --playing-color: #e53935;
+            --playing-bg: #fff5f5;
+            --finished-bg: #f5f5f5;
+            --event-bg: #e0f7fa;
+            --event-border: #00acc1;
+            --text-main: #2c3e50;
+            --text-sub: #607d8b;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            color: var(--text-main);
+            padding-bottom: 40px;
+        }
+
+        /* ゲスト対応のシンプルヘッダー */
+        .top-bar {
+            background: #fff;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .top-bar-title {
+            font-weight: bold;
+            font-size: 1.05em;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-back {
+            text-decoration: none;
+            font-size: 0.85em;
+            font-weight: bold;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            transition: 0.2s;
+        }
+        .btn-back:hover {
+            background: var(--primary-color);
+            color: #fff;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        /* ライブタイトルバナー */
+        .live-hero {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 22px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(30, 60, 114, 0.25);
+            margin-bottom: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .live-hero-sub {
+            font-size: 0.8em;
+            letter-spacing: 2px;
+            opacity: 0.85;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+        .live-hero-title {
+            font-size: 1.5em;
+            font-weight: 900;
+            margin: 0;
+            line-height: 1.3;
+        }
+        .live-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+        .live-tab {
+            padding: 8px 14px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85em;
+            cursor: pointer;
+            white-space: nowrap;
+            color: #555;
+        }
+        .live-tab.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* NOW PLAYING ハイライトバナー */
+        .now-playing-banner {
+            background: linear-gradient(90deg, #d32f2f, #f44336);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(229, 57, 53, 0.35);
+            animation: pulse-banner 2s infinite;
+            cursor: pointer;
+        }
+        @keyframes pulse-banner {
+            0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); }
+        }
+        .np-label {
+            font-size: 0.75em;
+            font-weight: bold;
+            background: rgba(0,0,0,0.25);
+            padding: 3px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 3px;
+        }
+        .np-band {
+            font-size: 1.15em;
+            font-weight: bold;
+        }
+
+        /* タイムテーブルリスト */
+        .tt-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* 各枠のカード */
+        .tt-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            border-left: 6px solid var(--primary-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+
+        /* 休憩・イベント枠のデザイン */
+        .tt-card.event-card {
+            background: var(--event-bg);
+            border-left-color: var(--event-border);
+            padding: 12px 16px;
+        }
+
+        /* NOW PLAYING 状態のデザイン */
+        .tt-card.status-playing {
+            background: var(--playing-bg);
+            border: 2px solid var(--playing-color);
+            border-left: 8px solid var(--playing-color);
+            box-shadow: 0 4px 15px rgba(229, 57, 53, 0.2);
+        }
+
+        /* 終了状態のデザイン */
+        .tt-card.status-finished {
+            background: var(--finished-bg);
+            border-left-color: #9e9e9e;
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .time-box {
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+            font-size: 0.95em;
+            color: #455a64;
+            background: rgba(0,0,0,0.05);
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .status-playing .time-box {
+            background: #ffcdd2;
+            color: #b71c1c;
+        }
+
+        /* ステータスバッジ */
+        .status-badge {
+            font-size: 0.75em;
+            font-weight: bold;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .badge-waiting {
+            background: #eceff1;
+            color: #607d8b;
+        }
+        .badge-playing {
+            background: var(--playing-color);
+            color: white;
+            animation: blink 1.2s infinite;
+        }
+        .badge-finished {
+            background: #e0e0e0;
+            color: #616161;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.75; }
+        }
+
+        .band-title {
+            font-size: 1.25em;
+            font-weight: 800;
+            margin: 4px 0 8px 0;
+            color: #222;
+            word-break: break-word;
+        }
+        .event-card .band-title {
+            font-size: 1.05em;
+            color: #006064;
+            margin: 2px 0;
+        }
+
+        /* ひとことコメント枠 */
+        .pr-comment {
+            font-size: 0.9em;
+            color: #444;
+            background: #f8f9fa;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border-left: 3px solid #90caf9;
+            margin-top: 8px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .status-playing .pr-comment {
+            background: #fff;
+            border-left-color: #ef5350;
+        }
+        .event-memo {
+            font-size: 0.85em;
+            color: #006064;
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        /* セットリスト（ネタバレ防止＆アコーディオン） */
+        .setlist-area {
+            margin-top: 12px;
+            border-top: 1px dashed #ddd;
+            padding-top: 10px;
+        }
+        .setlist-locked {
+            font-size: 0.8em;
+            color: #888;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        details.setlist-accordion {
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+        details.setlist-accordion summary {
+            font-size: 0.85em;
+            font-weight: bold;
+            color: #e65100;
+            cursor: pointer;
+            outline: none;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        details.setlist-accordion summary::-webkit-details-marker {
+            display: none;
+        }
+        details.setlist-accordion summary::after {
+            content: "▼ タップで表示";
+            font-size: 0.85em;
+            color: #fb8c00;
+        }
+        details.setlist-accordion[open] summary::after {
+            content: "▲ 閉じる";
+        }
+        .setlist-body {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #ffcc80;
+            font-size: 0.9em;
+            color: #4e342e;
+            line-height: 1.6;
+            word-break: break-word;
+        }
+
+        .empty-state {
+            background: #fff;
+            padding: 40px 20px;
+            border-radius: 12px;
+            text-align: center;
+            color: #777;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <div class="top-bar-title">🎸 LIVE TIMETABLE</div>
+        <a href="index.html" class="btn-back" id="nav-back-btn">ホームへ戻る</a>
+    </div>
+
+    <div class="container">
+        <!-- 複数ライブ公開時の切り替えタブ -->
+        <div id="live-tabs-container" class="live-tabs" style="display: none;"></div>
+
+        <!-- ライブメインヘッダー -->
+        <div id="live-hero-box" class="live-hero" style="display: none;">
+            <div class="live-hero-sub">TODAY'S LIVE</div>
+            <h1 class="live-hero-title" id="live-title-text">読み込み中...</h1>
+        </div>
+
+        <!-- 現在進行中（NOW PLAYING）へのジャンプリンクバナー -->
+        <div id="now-playing-banner" class="now-playing-banner">
+            <div>
+                <div class="np-label">🔥 NOW ON STAGE</div>
+                <div class="np-band" id="np-band-name">---</div>
+            </div>
+            <div style="font-size: 0.85em; font-weight: bold;">枠へ移動 ▼</div>
+        </div>
+
+        <!-- タイムテーブル本体 -->
+        <div id="timetable-container" class="tt-list">
+            <div class="empty-state">タイムテーブルを読み込んでいます...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { db } from "./firebase.js";
+        import { collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        // ログイン状態に応じて右上の戻るボタンのリンク先を調整
+        const userRole = localStorage.getItem('userRole');
+        const backBtn = document.getElementById('nav-back-btn');
+        if (!userRole) {
+            backBtn.textContent = "部員ログインへ";
+            backBtn.href = "login.html";
+        }
+
+        let openLives = [];
+        let currentLiveId = "";
+        let currentBands = [];
+        let currentEvents = [];
+
+        let unsubBands = null;
+        let unsubEvents = null;
+
+        // 自動モード（時刻連動）のため、10秒ごとに実効ステータスを再評価して描画を更新する
+        setInterval(() => {
+            if (currentLiveId && getCurrentLiveMode() === 'auto') {
+                renderTimetable();
+            }
+        }, 10000);
+
+        // "HH:MM" を 0時0分からの経過分数へ変換する写像
+        function timeToMinutes(timeStr) {
+            if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) return null;
+            const [h, m] = timeStr.split(':').map(Number);
+            if (isNaN(h) || isNaN(m)) return null;
+            return h * 60 + m;
+        }
+
+        function getCurrentLiveMode() {
+            const live = openLives.find(l => l.id === currentLiveId);
+            return (live && live.timetableMode === 'manual') ? 'manual' : 'auto';
+        }
+
+        // 各枠の実効ステータス ('waiting' | 'playing' | 'finished') を決定する関数
+        function getEffectiveStatus(item) {
+            const mode = getCurrentLiveMode();
+            if (mode === 'manual') {
+                return item.playStatus || 'waiting';
+            }
+            const startMin = timeToMinutes(item.startTime);
+            const endMin = timeToMinutes(item.endTime);
+            if (startMin === null || endMin === null) {
+                return item.playStatus || 'waiting';
+            }
+            const now = new Date();
+            const nowMin = now.getHours() * 60 + now.getMinutes();
+
+            if (nowMin < startMin) return 'waiting';
+            if (nowMin >= startMin && nowMin < endMin) return 'playing';
+            return 'finished';
+        }
+
+        function parseLegacyTime(data) {
+            let s = data.startTime || '';
+            let e = data.endTime || '';
+            if (!s && !e && data.timeSlot && data.timeSlot.includes('-')) {
+                const parts = data.timeSlot.split('-').map(p => p.trim());
+                s = parts[0] || '';
+                e = parts[1] || '';
+            }
+            return { s, e };
+        }
+
+        // HTMLエスケープ関数（XSS対策）
+        function escapeHtml(str) {
+            if (!str) return "";
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // 1. 公開中(isTimetableOpen == true)のライブをリアルタイム監視
+        const qLives = query(collection(db, "lives"), where("isTimetableOpen", "==", true));
+        onSnapshot(qLives, (snap) => {
+            openLives = [];
+            snap.forEach(d => {
+                openLives.push({ id: d.id, ...d.data() });
+            });
+
+            if (openLives.length === 0) {
+                currentLiveId = "";
+                document.getElementById('live-tabs-container').style.display = 'none';
+                document.getElementById('live-hero-box').style.display = 'none';
+                document.getElementById('now-playing-banner').style.display = 'none';
+                document.getElementById('timetable-container').innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 2em; margin-bottom: 10px;">🎸</div>
+                        <strong>現在公開中のライブ・タイムテーブルはありません。</strong>
+                        <p style="font-size: 0.85em; color: #999; margin-top: 8px;">ライブ当日の公開まで今しばらくお待ちください。</p>
+                    </div>
+                `;
+                if (unsubBands) unsubBands();
+                if (unsubEvents) unsubEvents();
+                return;
+            }
+
+            // 選択中のライブがなければ先頭を選択
+            if (!currentLiveId || !openLives.some(l => l.id === currentLiveId)) {
+                currentLiveId = openLives[0].id;
+                subscribeTimetableData(currentLiveId);
+            }
+
+            renderLiveHeaderAndTabs();
+            renderTimetable();
+        });
+
+        function renderLiveHeaderAndTabs() {
+            const tabsBox = document.getElementById('live-tabs-container');
+            const heroBox = document.getElementById('live-hero-box');
+            const titleText = document.getElementById('live-title-text');
+
+            if (openLives.length > 1) {
+                tabsBox.style.display = 'flex';
+                tabsBox.innerHTML = '';
+                openLives.forEach(live => {
+                    const btn = document.createElement('button');
+                    btn.className = `live-tab ${live.id === currentLiveId ? 'active' : ''}`;
+                    btn.textContent = live.name;
+                    btn.onclick = () => {
+                        currentLiveId = live.id;
+                        renderLiveHeaderAndTabs();
+                        subscribeTimetableData(currentLiveId);
+                    };
+                    tabsBox.appendChild(btn);
+                });
+            } else {
+                tabsBox.style.display = 'none';
+            }
+
+            const activeLive = openLives.find(l => l.id === currentLiveId);
+            if (activeLive) {
+                heroBox.style.display = 'block';
+                titleText.textContent = activeLive.name;
+            }
+        }
+
+        // 2. バンド枠(liveEntries)と休憩・イベント枠(liveEvents)のリアルタイム監視
+        function subscribeTimetableData(liveId) {
+            if (unsubBands) unsubBands();
+            if (unsubEvents) unsubEvents();
+
+            const qBands = query(collection(db, "liveEntries"), where("liveId", "==", liveId));
+            unsubBands = onSnapshot(qBands, (snap) => {
+                currentBands = [];
+                snap.forEach(d => {
+                    const data = d.data();
+                    if (data.status === 'approved') {
+                        const { s, e } = parseLegacyTime(data);
+                        currentBands.push({
+                            id: d.id,
+                            itemType: 'band',
+                            title: data.bandName || '名称未設定バンド',
+                            comment: data.prComment || '',
+                            setlist: data.setlist || '',
+                            order: typeof data.order === 'number' ? data.order : 99,
+                            startTime: s,
+                            endTime: e,
+                            timeSlot: (s || e) ? `${s} - ${e}` : (data.timeSlot || '時刻未定'),
+                            playStatus: data.playStatus || 'waiting'
+                        });
+                    }
+                });
+                renderTimetable();
+            });
+
+            const qEvents = query(collection(db, "liveEvents"), where("liveId", "==", liveId));
+            unsubEvents = onSnapshot(qEvents, (snap) => {
+                currentEvents = [];
+                snap.forEach(d => {
+                    const data = d.data();
+                    const { s, e } = parseLegacyTime(data);
+                    currentEvents.push({
+                        id: d.id,
+                        itemType: 'event',
+                        title: data.title || '予定',
+                        comment: data.memo || '',
+                        order: typeof data.order === 'number' ? data.order : 99,
+                        startTime: s,
+                        endTime: e,
+                        timeSlot: (s || e) ? `${s} - ${e}` : (data.timeSlot || ''),
+                        playStatus: data.playStatus || 'waiting'
+                    });
+                });
+                renderTimetable();
+            });
+        }
+
+        // 3. タイムテーブルの描画
+        function renderTimetable() {
+            const container = document.getElementById('timetable-container');
+            const npBanner = document.getElementById('now-playing-banner');
+            if (!currentLiveId) return;
+
+            // 現在開いているセトリのアコーディオン状態を保持（再描画で閉じないようにする）
+            const openedIds = new Set();
+            container.querySelectorAll('details.setlist-accordion[open]').forEach(det => {
+                openedIds.add(det.dataset.id);
+            });
+
+            const allItems = [...currentBands, ...currentEvents].sort((a, b) => a.order - b.order);
+
+            if (allItems.length === 0) {
+                npBanner.style.display = 'none';
+                container.innerHTML = `<div class="empty-state">タイムテーブルは現在準備中です。</div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            let playingItem = null;
+
+            allItems.forEach((item) => {
+                const effStatus = getEffectiveStatus(item);
+                if (effStatus === 'playing' && !playingItem) {
+                    playingItem = item;
+                }
+
+                const card = document.createElement('div');
+                const isEvent = item.itemType === 'event';
+                card.className = `tt-card ${isEvent ? 'event-card' : ''} status-${effStatus}`;
+                card.id = `tt-card-${item.id}`;
+
+                // ステータスバッジの生成
+                let badgeHtml = '';
+                if (effStatus === 'playing') {
+                    badgeHtml = `<span class="status-badge badge-playing">${isEvent ? '🔥 進行中' : '🔥 NOW PLAYING'}</span>`;
+                } else if (effStatus === 'finished') {
+                    badgeHtml = `<span class="status-badge badge-finished">終了</span>`;
+                } else {
+                    badgeHtml = `<span class="status-badge badge-waiting">出番前</span>`;
+                }
+
+                const timeHtml = item.timeSlot 
+                    ? `<div class="time-box">🕒 ${escapeHtml(item.timeSlot)}</div>` 
+                    : `<div></div>`;
+
+                if (isEvent) {
+                    // ☕ 休憩・イベント枠の描画
+                    const memoHtml = item.comment 
+                        ? `<div class="event-memo">${escapeHtml(item.comment).replace(/\n/g, '<br>')}</div>` 
+                        : '';
+                    card.innerHTML = `
+                        <div class="card-top">
+                            ${timeHtml}
+                            ${badgeHtml}
+                        </div>
+                        <div class="band-title">☕ ${escapeHtml(item.title)}</div>
+                        ${memoHtml}
+                    `;
+                } else {
+                    // 🎸 バンド枠の描画（予定時間帯・バンド名・ひとことコメント・条件付きセトリ）
+                    const commentHtml = item.comment && item.comment.trim() !== ""
+                        ? `<div class="pr-comment">💬 ${escapeHtml(item.comment).replace(/\n/g, '<br>')}</div>`
+                        : '';
+
+                    // ネタバレ防止つきセットリスト表示判定
+                    let setlistHtml = '';
+                    if (effStatus === 'finished') {
+                        if (item.setlist && item.setlist.trim() !== "") {
+                            const isOpenAttr = openedIds.has(item.id) ? 'open' : '';
+                            setlistHtml = `
+                                <div class="setlist-area">
+                                    <details class="setlist-accordion" data-id="${item.id}" ${isOpenAttr}>
+                                        <summary>🎵 セットリスト・思い出を見る</summary>
+                                        <div class="setlist-body">${escapeHtml(item.setlist).replace(/\n/g, '<br>')}</div>
+                                    </details>
+                                </div>
+                            `;
+                        } else {
+                            setlistHtml = `
+                                <div class="setlist-area">
+                                    <div class="setlist-locked">🎵 セットリストは未登録です</div>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        setlistHtml = `
+                            <div class="setlist-area">
+                                <div class="setlist-locked">🔒 セットリストは演奏終了後に公開されます</div>
+                            </div>
+                        `;
+                    }
+
+                    card.innerHTML = `
+                        <div class="card-top">
+                            ${timeHtml}
+                            ${badgeHtml}
+                        </div>
+                        <div class="band-title">🎸 ${escapeHtml(item.title)}</div>
+                        ${commentHtml}
+                        ${setlistHtml}
+                    `;
+                }
+
+                container.appendChild(card);
+            });
+
+            // NOW PLAYING バナーの更新
+            if (playingItem) {
+                npBanner.style.display = 'flex';
+                document.getElementById('np-band-name').textContent = playingItem.title;
+                npBanner.onclick = () => {
+                    const targetEl = document.getElementById(`tt-card-${playingItem.id}`);
+                    if (targetEl) {
+                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                };
+            } else {
+                npBanner.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
