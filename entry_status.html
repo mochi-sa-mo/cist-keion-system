@@ -72,11 +72,23 @@
         </div>
     </div>
 
-    <!-- 思い出・セトリ編集用モーダル -->
+    <!-- ひとことコメント・セトリ編集用モーダル -->
     <div id="setlist-modal" class="modal-overlay" style="z-index: 1100;">
         <div class="modal-content">
-            <h3 style="margin-top: 0; margin-bottom: 10px; color: #333; font-size: 1.1em;">🎵 演奏曲・思い出を登録</h3>
-            <textarea id="setlist-input" style="width: 100%; height: 120px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box;" placeholder="例：&#10;1. 〇〇&#10;2. 〇〇&#10;初めてのライブで緊張したけど楽しかった！"></textarea>
+            <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-size: 1.1em;">✏️ コメント・演奏曲の登録</h3>
+            
+            <!-- ▼ Step2追加：当日パンフレット用 ひとことコメント入力欄 ▼ -->
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.85em; font-weight: bold; color: #00838f; margin-bottom: 4px;">💬 当日パンフ用 ひとことコメント</label>
+                <textarea id="pr-comment-input" style="width: 100%; height: 65px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box; font-family: inherit;" placeholder="例：初ライブです！精一杯盛り上げます！"></textarea>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.85em; font-weight: bold; color: #e65100; margin-bottom: 4px;">🎵 演奏曲（セトリ）・思い出</label>
+                <span style="display: block; font-size: 0.75em; color: #666; margin-bottom: 4px;">※ライブ当日、出番終了後にパンフレット上で公開されます</span>
+                <textarea id="setlist-input" style="width: 100%; height: 110px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box; font-family: inherit;" placeholder="例：&#10;1. 〇〇&#10;2. 〇〇&#10;初めてのライブで緊張したけど楽しかった！"></textarea>
+            </div>
+
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button type="button" class="btn-close-modal" id="btn-cancel-setlist" style="margin-top: 0; flex: 1;">キャンセル</button>
                 <button type="button" class="btn-close-modal" id="btn-show-confirm" style="margin-top: 0; flex: 1; background: var(--primary-color);">保存する</button>
@@ -84,7 +96,7 @@
         </div>
     </div>
 
-    <!-- ▼ 追加：カスタム確認ポップアップ ▼ -->
+    <!-- カスタム確認ポップアップ -->
     <div id="custom-confirm-modal" class="modal-overlay" style="z-index: 1200;">
         <div class="modal-content" style="text-align: center; width: 300px; border-top: 5px solid var(--primary-color);">
             <h3 style="margin-top: 0; border: none; padding-bottom: 0;">確認</h3>
@@ -123,7 +135,7 @@
             document.getElementById('setlist-modal').style.display = 'none';
         });
 
-        // ▼ 追加：カスタム確認ポップアップの表示・非表示処理 ▼
+        // カスタム確認ポップアップの表示・非表示処理
         document.getElementById('btn-show-confirm').addEventListener('click', () => {
             document.getElementById('custom-confirm-modal').style.display = 'flex';
         });
@@ -136,6 +148,7 @@
             // 確認ポップアップを閉じる
             document.getElementById('custom-confirm-modal').style.display = 'none';
             
+            const newPrComment = document.getElementById('pr-comment-input').value.trim();
             const newText = document.getElementById('setlist-input').value.trim();
             const btn = document.getElementById('btn-save-setlist');
             const showConfirmBtn = document.getElementById('btn-show-confirm');
@@ -145,10 +158,13 @@
             showConfirmBtn.textContent = "保存中...";
 
             try {
+                // ▼ Step2変更：ひとことコメント(prComment)とセトリ(setlist)の両方を保存 ▼
                 await updateDoc(doc(db, "liveEntries", editingEntryId), {
+                    prComment: newPrComment,
                     setlist: newText
                 });
                 
+                myEntriesData[editingEntryId].prComment = newPrComment;
                 myEntriesData[editingEntryId].setlist = newText;
 
                 document.getElementById('setlist-modal').style.display = 'none';
@@ -202,9 +218,15 @@
                             : `<div class="sheet-status sheet-unsubmitted">📄 シート: 未提出</div>`;
                     }
 
+                    // ▼ Step2追加：ひとことコメントが登録されている場合はカードにも表示 ▼
+                    let prHtml = "";
+                    if (entry.prComment && entry.prComment.trim() !== "") {
+                        const formattedPr = entry.prComment.replace(/\n/g, '<br>');
+                        prHtml = `<div style="font-size: 0.85em; color: #006064; background: #e0f7fa; padding: 6px 8px; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid #00acc1; word-break: break-word;">💬 ひとことコメント<br>${formattedPr}</div>`;
+                    }
+
                     let memoryHtml = "";
                     if (entry.setlist && entry.setlist.trim() !== "") {
-                        // ▼ 修正：改行を <br> に変換して表示する
                         const formattedText = entry.setlist.replace(/\n/g, '<br>');
                         memoryHtml = `<div style="font-size: 0.85em; color: #795548; background: #fff8e1; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #ffb74d; word-break: break-word;">みんなの思い出<br>${formattedText}</div>`;
                     }
@@ -215,6 +237,7 @@
                         <div><div class="badge">${badgeText}</div>${sheetBadge}</div>
                         <div class="live-name">${entry.liveName}</div>
                         <div class="band-name">🎸 バンド：${entry.bandName}</div>
+                        ${prHtml}
                         ${memoryHtml}
                         <div class="action-buttons"><button class="btn-small btn-info btn-show-detail" data-id="${entryId}">📄 エントリー詳細</button></div>
                     `;
@@ -242,13 +265,23 @@
             
             let html = `<p style="margin-bottom: 5px;"><strong>🎵 ライブ:</strong> ${data.liveName}</p><p style="margin-bottom: 15px;"><strong>🎸 バンド:</strong> ${data.bandName}</p>`;
             
+            // ▼ Step2変更：ひとことコメントと演奏曲・思い出を並べて表示 ▼
+            const prCommentText = data.prComment ? data.prComment.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
             const setlistText = data.setlist ? data.setlist.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
+            
             html += `
-                <div style="margin-bottom: 5px; background: #fff3e0; padding: 5px 10px; border-radius: 4px; margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-                    <strong style="color: #e65100;">🎵 演奏曲・思い出</strong>
+                <div style="margin-bottom: 5px; background: #fff3e0; padding: 6px 10px; border-radius: 4px; margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <strong style="color: #e65100;">🎵 コメント・演奏曲・思い出</strong>
                     <button id="btn-edit-setlist" class="btn-small" style="background: #fff; border: 1px solid #ffb74d; color: #e65100; padding: 2px 8px; font-size: 0.8em; border-radius: 4px;">✏️ 編集</button>
                 </div>
-                <div style="padding: 10px; font-size: 0.9em; color: #555; background: #fff; border-radius: 4px; border: 1px dashed #ffb74d; min-height: 40px; word-break: break-word;">${setlistText}</div>
+                <div style="padding: 10px; font-size: 0.9em; color: #555; background: #fff; border-radius: 4px; border: 1px dashed #00acc1; margin-bottom: 8px; word-break: break-word;">
+                    <div style="font-size: 0.8em; font-weight: bold; color: #00838f; margin-bottom: 3px;">💬 当日パンフ用 ひとことコメント</div>
+                    ${prCommentText}
+                </div>
+                <div style="padding: 10px; font-size: 0.9em; color: #555; background: #fff; border-radius: 4px; border: 1px dashed #ffb74d; min-height: 40px; word-break: break-word;">
+                    <div style="font-size: 0.8em; font-weight: bold; color: #e65100; margin-bottom: 3px;">🎵 演奏曲（セトリ）・思い出</div>
+                    ${setlistText}
+                </div>
             `;
             
             html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>🎤 機材・セッティング</strong></p><ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
@@ -269,6 +302,7 @@
             
             document.getElementById('btn-edit-setlist').addEventListener('click', () => {
                 editingEntryId = entryId;
+                document.getElementById('pr-comment-input').value = data.prComment || "";
                 document.getElementById('setlist-input').value = data.setlist || "";
                 document.getElementById('setlist-modal').style.display = 'flex';
             });
