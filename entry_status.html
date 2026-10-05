@@ -77,7 +77,6 @@
         <div class="modal-content">
             <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-size: 1.1em;">✏️ コメント・演奏曲の登録</h3>
             
-            <!-- ▼ Step2追加：当日パンフレット用 ひとことコメント入力欄 ▼ -->
             <div style="margin-bottom: 12px;">
                 <label style="display: block; font-size: 0.85em; font-weight: bold; color: #00838f; margin-bottom: 4px;">💬 当日パンフ用 ひとことコメント</label>
                 <textarea id="pr-comment-input" style="width: 100%; height: 65px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box; font-family: inherit;" placeholder="例：初ライブです！精一杯盛り上げます！"></textarea>
@@ -135,7 +134,6 @@
             document.getElementById('setlist-modal').style.display = 'none';
         });
 
-        // カスタム確認ポップアップの表示・非表示処理
         document.getElementById('btn-show-confirm').addEventListener('click', () => {
             document.getElementById('custom-confirm-modal').style.display = 'flex';
         });
@@ -145,7 +143,6 @@
         });
 
         document.getElementById('btn-save-setlist').addEventListener('click', async () => {
-            // 確認ポップアップを閉じる
             document.getElementById('custom-confirm-modal').style.display = 'none';
             
             const newPrComment = document.getElementById('pr-comment-input').value.trim();
@@ -158,7 +155,6 @@
             showConfirmBtn.textContent = "保存中...";
 
             try {
-                // ▼ Step2変更：ひとことコメント(prComment)とセトリ(setlist)の両方を保存 ▼
                 await updateDoc(doc(db, "liveEntries", editingEntryId), {
                     prComment: newPrComment,
                     setlist: newText
@@ -186,10 +182,15 @@
             const historyContainer = document.getElementById('history-container');
             
             try {
-                const [snapEntries, snapLives] = await Promise.all([
-                    getDocs(query(collection(db, "liveEntries"), where("performerIds", "array-contains", currentUserId))),
+                // ▼ 修正：自分が所属しているすべてのバンド(memberIds)を取得し、代表者以外でも所属バンドのエントリーをすべて確認できるようにする ▼
+                const [snapMyBands, snapAllEntries, snapLives] = await Promise.all([
+                    getDocs(query(collection(db, "bands"), where("memberIds", "array-contains", currentUserId))),
+                    getDocs(collection(db, "liveEntries")),
                     getDocs(collection(db, "lives")) 
                 ]);
+
+                const myBandIds = new Set();
+                snapMyBands.forEach(d => myBandIds.add(d.id));
 
                 const liveMaster = {};
                 snapLives.forEach(d => { liveMaster[d.id] = d.data(); });
@@ -197,8 +198,14 @@
                 activeContainer.innerHTML = ''; historyContainer.innerHTML = '';
                 let activeCount = 0; let historyCount = 0;
 
-                snapEntries.forEach(d => {
+                snapAllEntries.forEach(d => {
                     const entry = d.data();
+                    const isPerformer = Array.isArray(entry.performerIds) && entry.performerIds.includes(currentUserId);
+                    const isMyBand = myBandIds.has(entry.bandId);
+
+                    // 出演メンバーに含まれているか、自分の所属バンドのエントリーであれば表示する
+                    if (!isPerformer && !isMyBand) return;
+
                     const entryId = d.id;
                     myEntriesData[entryId] = entry; 
                     
@@ -218,7 +225,6 @@
                             : `<div class="sheet-status sheet-unsubmitted">📄 シート: 未提出</div>`;
                     }
 
-                    // ▼ Step2追加：ひとことコメントが登録されている場合はカードにも表示 ▼
                     let prHtml = "";
                     if (entry.prComment && entry.prComment.trim() !== "") {
                         const formattedPr = entry.prComment.replace(/\n/g, '<br>');
@@ -265,7 +271,6 @@
             
             let html = `<p style="margin-bottom: 5px;"><strong>🎵 ライブ:</strong> ${data.liveName}</p><p style="margin-bottom: 15px;"><strong>🎸 バンド:</strong> ${data.bandName}</p>`;
             
-            // ▼ Step2変更：ひとことコメントと演奏曲・思い出を並べて表示 ▼
             const prCommentText = data.prComment ? data.prComment.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
             const setlistText = data.setlist ? data.setlist.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
             
