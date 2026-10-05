@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>当日タイムテーブル管理 - 部室予約システム</title>
+    <script>
+        const checkRole = localStorage.getItem('userRole');
+        if (checkRole !== 'admin' && checkRole !== 'adminadmin' && checkRole !== 'sysadmin') {
+            alert('アクセス権限がありません。');
+            window.location.replace('login.html');
+        }
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            --primary-color: #4A90E2;
+            --primary-hover: #357abd;
+            --bg-color: #f5f7fa;
+            --border-color: #ccc;
+            --playing-color: #e53935;
+            --playing-bg: #ffebee;
+            --finished-bg: #eeeeee;
+            --event-bg: #e0f7fa;
+            --event-border: #00acc1;
+        }
+        body.modal-open { overflow: hidden; }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-left: 10px;
+            font-size: 1.25em;
+            border-left: 5px solid var(--primary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-weight: bold; font-size: 0.9em; margin-bottom: 5px; }
+        .form-group select, .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1em;
+        }
+
+        /* 公開ステータスバー */
+        .publish-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .publish-status { font-weight: bold; font-size: 1.05em; }
+        .publish-status.open { color: #2e7d32; }
+        .publish-status.closed { color: #757575; }
+
+        /* タイムテーブルリスト */
+        .tt-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .tt-item {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px 15px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: 0.2s;
+        }
+        .tt-item.event-type {
+            background: var(--event-bg);
+            border-color: var(--event-border);
+        }
+        .tt-item.status-playing {
+            border-color: var(--playing-color);
+            background: var(--playing-bg);
+            box-shadow: 0 0 10px rgba(229, 57, 53, 0.25);
+        }
+        .tt-item.status-finished {
+            background: var(--finished-bg);
+            border-color: #bdbdbd;
+            opacity: 0.85;
+        }
+
+        .tt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .tt-title-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .type-badge {
+            font-size: 0.75em;
+            padding: 3px 8px;
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+        }
+        .badge-band { background: var(--primary-color); }
+        .badge-event { background: #00838f; }
+
+        /* 編集入力行（順番・時間） */
+        .tt-edit-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: rgba(255,255,255,0.7);
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px dashed #ccc;
+        }
+        .tt-edit-row label { font-size: 0.85em; font-weight: bold; color: #555; }
+        .input-order { width: 70px !important; padding: 6px !important; text-align: center; font-weight: bold; }
+        .input-time { width: 160px !important; padding: 6px !important; }
+
+        /* 進行コントロールボタン群 */
+        .tt-status-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            border-top: 1px solid rgba(0,0,0,0.08);
+            padding-top: 8px;
+        }
+        .btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+            color: white;
+            background: var(--primary-color);
+            transition: 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-success { background: #4caf50; }
+        .btn-danger { background: #d0021b; }
+        .btn-secondary { background: #757575; }
+        .btn-info { background: #00838f; }
+
+        .btn-status {
+            padding: 6px 12px;
+            font-size: 0.85em;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            background: #fff;
+            color: #555;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-status.active-waiting { background: #616161; color: white; border-color: #616161; }
+        .btn-status.active-playing { background: var(--playing-color); color: white; border-color: var(--playing-color); animation: pulse 1.5s infinite; }
+        .btn-status.active-finished { background: #4caf50; color: white; border-color: #4caf50; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(229, 57, 53, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); }
+        }
+
+        /* モーダル */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: #fff; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .tt-edit-row { flex-direction: column; align-items: stretch; }
+            .input-order, .input-time { width: 100% !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 1. ライブ選択＆公開設定セクション -->
+        <div class="card-section">
+            <div class="section-title">
+                <span>🎯 対象ライブと公開設定</span>
+                <a href="live_timetable.html" target="_blank" class="btn btn-info" style="text-decoration: none; font-size: 0.85em;">📱 当日ページを開く(確認用)</a>
+            </div>
+            
+            <div class="form-group">
+                <label for="live-select">タイムテーブルを編集・進行するライブを選択</label>
+                <select id="live-select">
+                    <option value="">読み込み中...</option>
+                </select>
+            </div>
+
+            <div id="live-settings-area" style="display: none;">
+                <div class="publish-box">
+                    <div>
+                        <div style="font-size: 0.8em; color: #666;">現在のパンフレット公開状態</div>
+                        <div id="timetable-pub-text" class="publish-status closed">🔒 非公開（準備中）</div>
+                    </div>
+                    <button id="btn-toggle-publish" class="btn btn-success">本日のライブとして公開する</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. タイムテーブル編集＆進行コントロール -->
+        <div class="card-section" id="timetable-main-area" style="display: none;">
+            <div class="section-title">
+                <span>⏱️ タイムテーブル編成 ＆ 当日進行</span>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-info" id="btn-open-event-modal">＋ 休憩・予定枠を追加</button>
+                    <button class="btn btn-success" id="btn-save-all-schedule">💾 順番・時間を一括保存</button>
+                </div>
+            </div>
+            <p style="font-size: 0.85em; color: #666; margin-top: -10px; margin-bottom: 15px;">
+                ※「順番」の数字（1, 2, 3...）が小さい順に上から並びます（変更後は「💾 順番・時間を一括保存」を押してください）。<br>
+                ※ライブ当日は、各枠の<strong>「🔥 NOWにする」</strong>を押すと、リアルタイムで全員のスマホ画面が切り替わります（前のNOW枠は自動で「終了（セトリ公開）」になります）。
+            </p>
+
+            <div id="timetable-list" class="tt-list"></div>
+        </div>
+    </div>
+
+    <!-- 休憩・イベント枠 追加モーダル -->
+    <div id="event-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid var(--primary-color); padding-bottom: 5px;">☕ 休憩・イベント枠の追加</h3>
+            <div class="form-group">
+                <label>順番 (数字)</label>
+                <input type="number" id="ev-order" value="1" step="1">
+            </div>
+            <div class="form-group">
+                <label>予定時間帯</label>
+                <input type="text" id="ev-time" placeholder="例: 14:00 - 14:15">
+            </div>
+            <div class="form-group">
+                <label>タイトル (必須)</label>
+                <input type="text" id="ev-title" placeholder="例: 換気・休憩 / 全体写真撮影">
+            </div>
+            <div class="form-group">
+                <label>補足メモ (任意)</label>
+                <textarea id="ev-memo" style="height: 60px;" placeholder="例: 14:15から後半戦スタートです！"></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn btn-secondary" id="btn-cancel-event" style="flex: 1;">キャンセル</button>
+                <button class="btn btn-info" id="btn-add-event" style="flex: 1;">追加する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- カスタム確認モーダル -->
+    <div id="confirm-modal" class="modal-overlay" style="z-index: 1200;">
+        <div class="modal-content" style="text-align: center; max-width: 320px; border-top: 5px solid var(--primary-color);">
+            <h3 id="confirm-title" style="margin-top: 0;">確認</h3>
+            <p id="confirm-message" style="color: #555; font-size: 0.95em; line-height: 1.5; margin: 15px 0;"></p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" id="btn-confirm-cancel" style="flex: 1;">キャンセル</button>
+                <button class="btn" id="btn-confirm-ok" style="flex: 1;">実行する</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { db } from "./firebase.js";
+        import { setupHeader, setupCommonModals } from "./Component.js";
+        import { collection, doc, onSnapshot, updateDoc, addDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        setupHeader('当日タイムテーブル管理', 'back');
+        setupCommonModals();
+
+        let livesMap = {};
+        let selectedLiveId = "";
+        
+        let currentBands = [];  // 承認済みバンド枠 (liveEntries)
+        let currentEvents = []; // 休憩・イベント枠 (liveEvents)
+        
+        let unsubscribeBands = null;
+        let unsubscribeEvents = null;
+
+        let confirmCallback = null;
+
+        function showCustomConfirm(title, message, callback) {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').innerHTML = message;
+            confirmCallback = callback;
+            document.getElementById('confirm-modal').style.display = 'flex';
+        }
+
+        document.getElementById('btn-confirm-cancel').onclick = () => {
+            document.getElementById('confirm-modal').style.display = 'none';
+            confirmCallback = null;
+        };
+        document.getElementById('btn-confirm-ok').onclick = async () => {
+            document.getElementById('confirm-modal').style.display = 'none';
+            if (confirmCallback) await confirmCallback();
+            confirmCallback = null;
+        };
+
+        // 1. ライブ一覧のリアルタイム監視
+        onSnapshot(collection(db, "lives"), (snap) => {
+            const select = document.getElementById('live-select');
+            const prevVal = select.value || selectedLiveId;
+            select.innerHTML = '<option value="">-- ライブを選択してください --</option>';
+            livesMap = {};
+
+            const liveArray = [];
+            snap.forEach(d => {
+                const data = d.data();
+                livesMap[d.id] = { id: d.id, ...data };
+                liveArray.push({ id: d.id, ...data });
+            });
+
+            // 開催中(isActive)を優先して表示
+            liveArray.sort((a, b) => (b.isActive ? 1 : 0) - (a.isActive ? 1 : 0));
+
+            liveArray.forEach(live => {
+                const opt = document.createElement('option');
+                opt.value = live.id;
+                const statusTag = live.isTimetableOpen ? '【🔥当日公開中】' : (live.isActive ? '【進行中】' : '【過去】');
+                opt.textContent = `${statusTag}${live.name}`;
+                select.appendChild(opt);
+            });
+
+            if (prevVal && livesMap[prevVal]) {
+                select.value = prevVal;
+                updatePublishUI();
+            }
+        });
+
+        document.getElementById('live-select').addEventListener('change', (e) => {
+            selectedLiveId = e.target.value;
+            if (!selectedLiveId) {
+                document.getElementById('live-settings-area').style.display = 'none';
+                document.getElementById('timetable-main-area').style.display = 'none';
+                if (unsubscribeBands) unsubscribeBands();
+                if (unsubscribeEvents) unsubscribeEvents();
+                return;
+            }
+            document.getElementById('live-settings-area').style.display = 'block';
+            document.getElementById('timetable-main-area').style.display = 'block';
+            updatePublishUI();
+            startTimetableSync(selectedLiveId);
+        });
+
+        function updatePublishUI() {
+            const live = livesMap[selectedLiveId];
+            if (!live) return;
+            const pubText = document.getElementById('timetable-pub-text');
+            const btnToggle = document.getElementById('btn-toggle-publish');
+
+            if (live.isTimetableOpen === true) {
+                pubText.textContent = "🟢 公開中（全員がタイムテーブルを閲覧できます）";
+                pubText.className = "publish-status open";
+                btnToggle.textContent = "非公開に戻す";
+                btnToggle.className = "btn btn-secondary";
+            } else {
+                pubText.textContent = "🔒 非公開（準備中）";
+                pubText.className = "publish-status closed";
+                btnToggle.textContent = "🔥 本日のライブとして公開する";
+                btnToggle.className = "btn btn-success";
+            }
+        }
+
+        // 公開・非公開の切り替え
+        document.getElementById('btn-toggle-publish').onclick = async () => {
+            if (!selectedLiveId) return;
+            const live = livesMap[selectedLiveId];
+            const nextState = !live.isTimetableOpen;
+            const msg = nextState 
+                ? `「${live.name}」のタイムテーブルを<strong>公開</strong>しますか？<br>（トップページ等にバナーが表示されます）`
+                : `「${live.name}」のタイムテーブルを<strong>非公開</strong>にしますか？`;
+
+            showCustomConfirm("公開設定の変更", msg, async () => {
+                try {
+                    await updateDoc(doc(db, "lives", selectedLiveId), { isTimetableOpen: nextState });
+                } catch (e) {
+                    console.error(e);
+                    alert("更新に失敗しました。");
+                }
+            });
+        };
+
+        // 2. 選択されたライブの「承認済みバンド」と「イベント枠」を監視
+        function startTimetableSync(liveId) {
+            if (unsubscribeBands) unsubscribeBands();
+            if (unsubscribeEvents) unsubscribeEvents();
+
+            const qBands = query(collection(db, "liveEntries"), where("liveId", "==", liveId));
+            unsubscribeBands = onSnapshot(qBands, (snap) => {
+                currentBands = [];
+                snap.forEach(d => {
+                    const data = d.data();
+                    // 出演承認済み(approved)のバンドのみをタイムテーブルの対象とする
+                    if (data.status === 'approved') {
+                        currentBands.push({
+                            id: d.id,
+                            itemType: 'band',
+                            title: data.bandName,
+                            comment: data.prComment || '',
+                            setlist: data.setlist || '',
+                            order: typeof data.order === 'number' ? data.order : 99,
+                            timeSlot: data.timeSlot || '',
+                            playStatus: data.playStatus || 'waiting'
+                        });
+                    }
+                });
+                renderTimetableList();
+            });
+
+            const qEvents = query(collection(db, "liveEvents"), where("liveId", "==", liveId));
+            unsubscribeEvents = onSnapshot(qEvents, (snap) => {
+                currentEvents = [];
+                snap.forEach(d => {
+                    const data = d.data();
+                    currentEvents.push({
+                        id: d.id,
+                        itemType: 'event',
+                        title: data.title,
+                        comment: data.memo || '',
+                        order: typeof data.order === 'number' ? data.order : 99,
+                        timeSlot: data.timeSlot || '',
+                        playStatus: data.playStatus || 'waiting'
+                    });
+                });
+                renderTimetableList();
+            });
+        }
+
+        // 3. タイムテーブル一覧の描画
+        function renderTimetableList() {
+            const listEl = document.getElementById('timetable-list');
+            listEl.innerHTML = '';
+
+            // バンド枠とイベント枠を統合し、order順にソート
+            const allItems = [...currentBands, ...currentEvents].sort((a, b) => a.order - b.order);
+
+            if (allItems.length === 0) {
+                listEl.innerHTML = '<p style="text-align:center; color:#888;">出演承認済み（approved）のバンド、または予定枠がありません。<br>先に「ライブ審査・管理」画面でバンドを承認するか、上のボタンから予定枠を追加してください。</p>';
+                return;
+            }
+
+            allItems.forEach((item, idx) => {
+                const div = document.createElement('div');
+                const isEvent = item.itemType === 'event';
+                div.className = `tt-item ${isEvent ? 'event-type' : ''} status-${item.playStatus}`;
+                div.dataset.id = item.id;
+                div.dataset.type = item.itemType;
+
+                const badgeHtml = isEvent 
+                    ? `<span class="type-badge badge-event">☕ 予定・休憩</span>`
+                    : `<span class="type-badge badge-band">🎸 バンド</span>`;
+
+                const deleteBtnHtml = isEvent
+                    ? `<button class="btn btn-danger btn-del-event" data-id="${item.id}" style="padding: 4px 10px; font-size: 0.8em;">枠を削除</button>`
+                    : ``;
+
+                const subInfoHtml = isEvent
+                    ? (item.comment ? `<div style="font-size:0.85em; color:#006064;">📝 ${item.comment}</div>` : '')
+                    : `<div style="font-size:0.8em; color:#666;">💬 コメント: ${item.comment ? '登録済' : '未登録'} ／ 🎵 セトリ: ${item.setlist ? '登録済' : '未登録'}</div>`;
+
+                const displayOrder = item.order === 99 ? (idx + 1) : item.order;
+
+                div.innerHTML = `
+                    <div class="tt-header">
+                        <div class="tt-title-area">
+                            ${badgeHtml}
+                            <span>${item.title}</span>
+                        </div>
+                        ${deleteBtnHtml}
+                    </div>
+                    ${subInfoHtml}
+                    <div class="tt-edit-row">
+                        <div>
+                            <label>順番：</label>
+                            <input type="number" class="input-order" value="${displayOrder}" step="1">
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <label>予定時間：</label>
+                            <input type="text" class="input-time" value="${item.timeSlot}" placeholder="例: 13:00 - 13:25">
+                        </div>
+                    </div>
+                    <div class="tt-status-controls">
+                        <span style="font-size: 0.8em; font-weight: bold; color: #555; margin-right: auto;">当日進行ステータス：</span>
+                        <button class="btn-status ${item.playStatus === 'waiting' ? 'active-waiting' : ''}" data-action="waiting">⏸ 出番前</button>
+                        <button class="btn-status ${item.playStatus === 'playing' ? 'active-playing' : ''}" data-action="playing">🔥 NOWにする</button>
+                        <button class="btn-status ${item.playStatus === 'finished' ? 'active-finished' : ''}" data-action="finished">⏹ 終了(セトリ解禁)</button>
+                    </div>
+                `;
+
+                // 進行ステータス変更ボタンのイベント
+                div.querySelectorAll('.btn-status').forEach(btn => {
+                    btn.onclick = () => changePlayStatus(item, btn.dataset.action, allItems);
+                });
+
+                // イベント枠削除ボタンのイベント
+                const delBtn = div.querySelector('.btn-del-event');
+                if (delBtn) {
+                    delBtn.onclick = () => {
+                        showCustomConfirm("枠の削除", `予定枠「${item.title}」を削除しますか？`, async () => {
+                            await deleteDoc(doc(db, "liveEvents", item.id));
+                        });
+                    };
+                }
+
+                listEl.appendChild(div);
+            });
+        }
+
+        // 4. 順番・予定時間の一括保存
+        document.getElementById('btn-save-all-schedule').onclick = async () => {
+            const itemEls = document.querySelectorAll('.tt-item');
+            if (itemEls.length === 0) return;
+
+            const btn = document.getElementById('btn-save-all-schedule');
+            btn.disabled = true;
+            btn.textContent = "保存中...";
+
+            try {
+                const batch = writeBatch(db);
+                itemEls.forEach(el => {
+                    const id = el.dataset.id;
+                    const type = el.dataset.type;
+                    const colName = type === 'event' ? 'liveEvents' : 'liveEntries';
+                    const orderVal = Number(el.querySelector('.input-order').value) || 1;
+                    const timeVal = el.querySelector('.input-time').value.trim();
+
+                    batch.update(doc(db, colName, id), {
+                        order: orderVal,
+                        timeSlot: timeVal
+                    });
+                });
+                await batch.commit();
+                alert("順番と予定時間を保存しました！");
+            } catch (e) {
+                console.error(e);
+                alert("保存に失敗しました。");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "💾 順番・時間を一括保存";
+            }
+        };
+
+        // 5. 当日進行ステータス（waiting / playing / finished）の切り替え
+        async function changePlayStatus(targetItem, newStatus, allItems) {
+            if (targetItem.playStatus === newStatus) return;
+
+            try {
+                const batch = writeBatch(db);
+                const targetCol = targetItem.itemType === 'event' ? 'liveEvents' : 'liveEntries';
+
+                // もし「🔥 NOWにする(playing)」が押された場合、現在 playing になっている他の枠を自動的に「finished(終了)」へ進める
+                if (newStatus === 'playing') {
+                    allItems.forEach(other => {
+                        if (other.id !== targetItem.id && other.playStatus === 'playing') {
+                            const otherCol = other.itemType === 'event' ? 'liveEvents' : 'liveEntries';
+                            batch.update(doc(db, otherCol, other.id), { playStatus: 'finished' });
+                        }
+                    });
+                }
+
+                batch.update(doc(db, targetCol, targetItem.id), { playStatus: newStatus });
+                await batch.commit();
+            } catch (e) {
+                console.error("ステータス更新エラー:", e);
+                alert("ステータスの切り替えに失敗しました。");
+            }
+        }
+
+        // 6. 休憩・イベント枠の追加モーダル処理
+        document.getElementById('btn-open-event-modal').onclick = () => {
+            const totalCount = currentBands.length + currentEvents.length;
+            document.getElementById('ev-order').value = totalCount + 1;
+            document.getElementById('ev-time').value = "";
+            document.getElementById('ev-title').value = "";
+            document.getElementById('ev-memo').value = "";
+            document.getElementById('event-modal').style.display = 'flex';
+        };
+
+        document.getElementById('btn-cancel-event').onclick = () => {
+            document.getElementById('event-modal').style.display = 'none';
+        };
+
+        document.getElementById('btn-add-event').onclick = async () => {
+            const title = document.getElementById('ev-title').value.trim();
+            if (!title) return alert("タイトルを入力してください（例：換気・休憩）");
+
+            const order = Number(document.getElementById('ev-order').value) || 1;
+            const timeSlot = document.getElementById('ev-time').value.trim();
+            const memo = document.getElementById('ev-memo').value.trim();
+
+            const btn = document.getElementById('btn-add-event');
+            btn.disabled = true;
+
+            try {
+                await addDoc(collection(db, "liveEvents"), {
+                    liveId: selectedLiveId,
+                    title: title,
+                    timeSlot: timeSlot,
+                    memo: memo,
+                    order: order,
+                    playStatus: 'waiting',
+                    createdAt: new Date().toISOString()
+                });
+                document.getElementById('event-modal').style.display = 'none';
+            } catch (e) {
+                console.error(e);
+                alert("追加に失敗しました。");
+            } finally {
+                btn.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
