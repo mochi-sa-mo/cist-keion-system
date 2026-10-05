@@ -24,7 +24,7 @@
         
         <div class="form-group">
             <label><strong>メンテナンス状態</strong></label><br>
-            <!-- ▼ 修正：デフォルトで「通常稼働」にチェックを入れておく ▼ -->
+            <!-- デフォルトで「通常稼働」にチェックを入れておく -->
             <label><input type="radio" name="mnt-status" value="false" checked> 通常稼働（ログイン可能）</label><br>
             <label><input type="radio" name="mnt-status" value="true"> メンテナンス中（ログイン遮断）</label>
         </div>
@@ -49,6 +49,23 @@
             <label><strong>お知らせメッセージ</strong></label>
             <textarea id="notice-message" placeholder="例: 次回の予約期間は〇月〇日からです。"></textarea>
         </div>
+
+        <div class="section-divider"></div>
+
+        <!-- ▼ 追加：ログイン画面での「本日のライブ」ポップアップ（バナー）表示設定 ▼ -->
+        <h2>🎸 本日のライブ案内（ログイン画面）</h2>
+        <p style="font-size: 0.85em; color: #666; margin-top: -10px;">ログイン画面に「本日のライブはこちらから確認！」のポップアップを表示し、タップで当日タイムテーブル（live_timetable.html）へ誘導します。</p>
+
+        <div class="form-group">
+            <label><strong>ライブ案内の表示状態</strong></label><br>
+            <label><input type="radio" name="live-banner-status" value="true"> 表示する（ライブ当日）</label><br>
+            <label><input type="radio" name="live-banner-status" value="false" checked> 表示しない</label>
+        </div>
+
+        <div class="form-group">
+            <label><strong>表示テキスト（未入力でもOK）</strong></label>
+            <input type="text" id="live-banner-message" style="width: 100%; padding: 8px; box-sizing: border-box;" placeholder="例: 🔥 本日のライブはこちらから確認！">
+        </div>
         
         <button class="btn" id="btn-save" style="width: 100%; margin-top: 10px;">設定を保存して反映</button>
         <button class="btn btn-danger" onclick="location.href='login.html'; localStorage.removeItem('userRole');" style="margin-top:20px; width:100%;">ログアウト</button>
@@ -66,6 +83,7 @@
 
         const mntRef = doc(db, "systemSettings", "maintenance");
         const noticeRef = doc(db, "systemSettings", "systemNotice");
+        const liveBannerRef = doc(db, "systemSettings", "liveBanner");
 
         // メンテナンス状態のリアルタイム読み込み
         onSnapshot(mntRef, (docSnap) => {
@@ -96,9 +114,18 @@
             }
         });
 
+        // ▼ 追加：本日のライブ案内のリアルタイム読み込み ▼
+        onSnapshot(liveBannerRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                const radio = document.querySelector(`input[name="live-banner-status"][value="${data.active}"]`);
+                if (radio) radio.checked = true;
+                document.getElementById('live-banner-message').value = data.message || '';
+            }
+        });
+
         // 保存処理
         document.getElementById('btn-save').onclick = async () => {
-            // ▼ 修正：万が一チェックされていなかった場合でもエラーで落ちないようにする ▼
             const mntChecked = document.querySelector('input[name="mnt-status"]:checked');
             if (!mntChecked) {
                 alert("メンテナンス状態（通常稼働 か メンテナンス中）を選択してください。");
@@ -114,10 +141,15 @@
             }
             const isNoticeActive = noticeChecked.value === "true";
             const noticeMsg = document.getElementById('notice-message').value.trim();
+
+            const liveBannerChecked = document.querySelector('input[name="live-banner-status"]:checked');
+            const isLiveBannerActive = liveBannerChecked ? (liveBannerChecked.value === "true") : false;
+            const liveBannerMsg = document.getElementById('live-banner-message').value.trim();
             
             try {
                 await setDoc(mntRef, { active: isMntActive, message: mntMsg });
                 await setDoc(noticeRef, { active: isNoticeActive, message: noticeMsg });
+                await setDoc(liveBannerRef, { active: isLiveBannerActive, message: liveBannerMsg });
                 alert("すべての設定をシステムに反映しました。");
             } catch (error) {
                 console.error(error);
