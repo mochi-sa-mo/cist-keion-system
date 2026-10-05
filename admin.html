@@ -523,7 +523,6 @@
                     <div class="tabs">
                         <div class="tab active" id="tab-event">イベント登録</div>
                         <div class="tab" id="tab-deadline">締め切り登録</div>
-                        <!-- ▼ 追加：シート提出登録タブ ▼ -->
                         <div class="tab" id="tab-sheet">シート提出登録</div>
                     </div>
 
@@ -548,17 +547,14 @@
                         <button type="submit" class="btn">即時公開する</button>
                     </form>
 
-                    <!-- ▼ 変更：シート提出登録フォーム（必須項目を日付のみに変更） ▼ -->
                     <form id="form-sheet" class="form-panel">
                         <div class="form-group">
                             <label>対象ライブ</label>
-                            <!-- ライブ選択時に件名を自動入力するイベントを後でJSで追加します -->
                             <select id="s-live"><option value="">選択してください</option></select>
                         </div>
                         <div class="form-group"><label>件名</label><input type="text" id="s-title" placeholder="ライブを選択すると自動入力されます"></div>
                         <div class="form-group"><label>提出先リンク (Googleフォーム等)</label><input type="url" id="s-link" placeholder="URLを入力してください"></div>
                         <div class="form-group"><label>備考</label><textarea id="s-notes"></textarea></div>
-                        <!-- ▼ 変更：必須項目は日付のみ ▼ -->
                         <div class="form-group"><label>締め切り日時 (非表示日時)<span class="required-badge">*</span></label><input type="date" id="s-expire" required></div>
                         <button type="submit" class="btn">即時公開する</button>
                     </form>
@@ -740,7 +736,6 @@
             document.getElementById('form-deadline').onsubmit = (e) => submitAnnouncement(e, 'deadline');
             document.getElementById('form-sheet').onsubmit = (e) => submitAnnouncement(e, 'sheet');
 
-            // ▼ 追加：シート提出のライブを選択した時に、件名を自動で入力するイベント ▼
             document.getElementById('s-live').addEventListener('change', function() {
                 const selectedText = this.options[this.selectedIndex].text;
                 if (this.value) {
@@ -873,16 +868,13 @@
             event.preventDefault();
             const prefix = type === 'event' ? 'e' : type === 'deadline' ? 'd' : 's';
             
-            // ▼ 変更：シート提出の場合は、必須チェックを日付だけに絞る
             const expireDate = document.getElementById(`${prefix}-expire`).value;
             if (!expireDate) return alert('非表示日時（締め切り日）を入力してください。');
-            const expire = expireDate + "T23:59"; // ▼ 日付が選ばれたら裏で23:59に固定する
+            const expire = expireDate + "T23:59"; 
 
-            // イベント・締め切りタブの必須チェック
             let title = document.getElementById(`${prefix}-title`).value.trim();
             if (type !== 'sheet' && !title) return alert('件名を入力してください。');
             
-            // シート提出タブで件名が空の場合はデフォルト文字を入れる
             if (type === 'sheet' && !title) {
                 const sLive = document.getElementById('s-live');
                 const liveName = sLive.options[sLive.selectedIndex].text;
@@ -1093,21 +1085,28 @@
             }
         }
 
+        // ▼ 修正：曜日インデックスではなく「対象の日付(targetDate)」ごとに一括ブロックする ▼
         async function toggleColumnBlock(dIndex) {
+            const activeDates = getWeekDates(currentWeekOffset);
+            const targetDate = activeDates[dIndex];
             const allPeriods = [0,1,2,3,4,5,6,7];
+            
             const isAllBlocked = allPeriods.every(pIndex => 
-                dbDisabledSlots.some(s => s.day === dIndex && s.period === pIndex && s.blocked === true)
+                dbDisabledSlots.some(s => s.date === targetDate && s.period === pIndex && s.blocked === true)
             );
             const promises = allPeriods.map(pIndex => {
-                const slotRef = doc(db, "disabledSlots", `slot_${dIndex}_${pIndex}`);
-                return setDoc(slotRef, { day: dIndex, period: pIndex, blocked: !isAllBlocked });
+                const slotRef = doc(db, "disabledSlots", `slot_${targetDate}_${pIndex}`);
+                return setDoc(slotRef, { date: targetDate, day: dIndex, period: pIndex, blocked: !isAllBlocked });
             });
             await Promise.all(promises);
         }
 
+        // ▼ 修正：単一コマのブロックも「対象の日付(targetDate)」を含めて保存する ▼
         async function toggleSingleBlock(dIndex, pIndex, currentBlockedState) {
-            const slotRef = doc(db, "disabledSlots", `slot_${dIndex}_${pIndex}`);
-            await setDoc(slotRef, { day: dIndex, period: pIndex, blocked: !currentBlockedState });
+            const activeDates = getWeekDates(currentWeekOffset);
+            const targetDate = activeDates[dIndex];
+            const slotRef = doc(db, "disabledSlots", `slot_${targetDate}_${pIndex}`);
+            await setDoc(slotRef, { date: targetDate, day: dIndex, period: pIndex, blocked: !currentBlockedState });
         }
 
         function renderAdminGrid() {
@@ -1147,18 +1146,20 @@
 
                 days.forEach((day, dIndex) => {
                     const cell = document.createElement('div'); cell.className = 'cell';
-                    if (activeDates[dIndex] === todayStr) {
+                    const targetDate = activeDates[dIndex];
+
+                    if (targetDate === todayStr) {
                         cell.classList.add('today-col');
                     }
                     
-                    const slotData = dbDisabledSlots.find(s => s.day === dIndex && s.period === pIndex);
+                    // ▼ 修正：曜日(s.day)ではなく、日付(s.date === targetDate)でブロック状態を判定する ▼
+                    const slotData = dbDisabledSlots.find(s => s.date === targetDate && s.period === pIndex);
                     const isBlocked = slotData ? slotData.blocked === true : false;
                     
                     if (isBlocked) cell.classList.add('admin-blocked');
 
                     const blockedText = document.createElement('div'); blockedText.className = 'cell-blocked-text'; blockedText.textContent = '予約不可'; cell.appendChild(blockedText);
 
-                    const targetDate = activeDates[dIndex];
                     const cellRes = dbReservations.filter(r => r.date === targetDate && r.period === pIndex);
                     
                     cellRes.forEach(res => {
@@ -1167,7 +1168,7 @@
                         let statusClass = '';
                         if (res.rejected) statusClass = 'rejected';
                         else if (res.cancelRequested) statusClass = 'has-alert';
-                        else if (res.confirmed) statusClass = 'confirmed';      
+                        else if (res.confirmed) statusClass = 'confirmed';     
                         else if (res.isAdditional) statusClass = 'additional'; 
                         
                         tag.className = `admin-tag ${statusClass}`;
