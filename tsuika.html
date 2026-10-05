@@ -70,12 +70,12 @@
 
         .grid {
             display: grid;
-            grid-template-columns: 60px repeat(7, minmax(95px, 1fr));
+            /* PC画面では等分で収め、横スクロールを出さないように調整 */
+            grid-template-columns: 60px repeat(7, minmax(0, 1fr));
             gap: 1px;
             background-color: var(--border-color);
             border: 1px solid var(--border-color);
             width: 100%;
-            min-width: max-content; 
         }
         .header-cell, .period-cell {
             background-color: #eee;
@@ -239,6 +239,7 @@
             .main-container { flex-direction: column; gap: 15px; }
             .calendar-section, .form-section { width: 100%; flex: none; }
             .form-section { position: static; }
+            .grid { min-width: 700px; }
         }
     </style>
 </head>
@@ -425,7 +426,7 @@
                     dayCell.classList.add('today-col');
                 }
                 
-                // ▼ 変更：日付も一緒に表示する
+                // ▼ 日付も一緒に表示する
                 const dateParts = currentWeekDates[dIndex].split('-');
                 const m = parseInt(dateParts[1], 10);
                 const d = parseInt(dateParts[2], 10);
@@ -445,17 +446,18 @@
                     cell.className = 'cell';
                     cell.id = `cell-${dIndex}-${pIndex}`;
                     
-                    if (currentWeekDates[dIndex] === todayStr) {
+                    const targetDate = currentWeekDates[dIndex];
+                    if (targetDate === todayStr) {
                         cell.classList.add('today-col');
                     }
                     
-                    const isAdminDisabled = dbDisabledSlots.some(s => s.day === dIndex && s.period === pIndex && s.blocked === true);
-                    const targetDate = currentWeekDates[dIndex];
+                    // ▼ 修正：曜日(s.day)ではなく、具体的な日付(s.date === targetDate)で予約不可を判定する ▼
+                    const isAdminDisabled = dbDisabledSlots.some(s => s.date === targetDate && s.period === pIndex && s.blocked === true);
                     const cellRes = dbConfirmedReservations.filter(r => r.date === targetDate && r.period === pIndex);
                     
                     const blockingRes = cellRes.filter(r => r.confirmed === true && r.cancelRequested === false && r.rejected !== true);
                     
-                    // ▼ 追加：現在選択しているバンドが既に申請しているかチェック
+                    // 現在選択しているバンドが既に申請しているかチェック
                     const myExistingRes = cellRes.filter(r => r.bandId === selectedBandId && r.cancelRequested === false && r.rejected !== true);
 
                     if (isAdminDisabled) {
@@ -472,7 +474,7 @@
                         });
                     } 
                     else if (selectedBandId && myExistingRes.length > 0) {
-                        // ▼ 自バンドが既に申請済みの場合はグレーアウトしてクリック不可にする
+                        // 自バンドが既に申請済みの場合はグレーアウトしてクリック不可にする
                         cell.classList.add('has-existing');
                         const tag = document.createElement('div');
                         tag.className = 'faint-band-tag';
@@ -512,7 +514,7 @@
             const dateParts = currentWeekDates[dayIndex].split('-');
             const m = parseInt(dateParts[1], 10);
             const d = parseInt(dateParts[2], 10);
-            // ▼ 変更：選択リストの表示も「月/日」を含める
+            // 選択リストの表示も「月/日」を含める
             const slotStr = `${m}/${d}(${days[dayIndex]}) ${periods[periodIndex]}`;
             const slotData = { day: dayIndex, period: periodIndex, text: slotStr };
 
@@ -570,7 +572,7 @@
                 return;
             }
 
-            // ▼ 追加：送信直前の最終チェック（重複弾き）
+            // 送信直前の最終チェック（重複弾き）
             for (let slot of selectedSlots) {
                 const targetDate = currentWeekDates[slot.day];
                 const isDuplicate = dbConfirmedReservations.some(r => r.date === targetDate && r.period === slot.period && r.bandId === bandId && r.cancelRequested === false && r.rejected !== true);
@@ -593,7 +595,7 @@
                         period: slot.period,
                         bandId: bandId,       
                         bandName: bandName,   
-                        userId: currentUserId, // ▼ 修正：予約者の学籍番号を保存する処理を追加
+                        userId: currentUserId, 
                         notes: notes,
                         confirmed: false,       
                         cancelRequested: false,
