@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>予約入力 - 部室予約システム</title>
+    <title>予約入力 - keionポータル</title>
     <style>
         /* 画面全体の横揺れを防ぐ */
         html, body {
@@ -252,7 +252,7 @@
         <div class="form-section">
             <h2 style="margin-top: 0; font-size: 1.1em; color: #555;">予約希望の申請</h2>
             
-            <label style="font-weight: bold; font-size: 0.9em; display:block; margin-bottom:4px;">選択中のスロット</label>
+            <label style="font-weight: bold; font-size: 0.9em; display:block; margin-bottom:4px;">選択中の日程</label>
             <div class="selected-list" id="selected-display">
                 選択されていません（カレンダーから選んでください）
             </div>
@@ -428,7 +428,6 @@
                     cell.id = `cell-${dIndex}-${pIndex}`;
                     
                     const targetDate = nextWeekDates[dIndex];
-                    // ▼ 修正：曜日(s.day)ではなく、具体的な日付(s.date === targetDate)で予約不可を判定する ▼
                     const isAdminDisabled = dbDisabledSlots.some(s => s.date === targetDate && s.period === pIndex && s.blocked === true);
                     
                     if (isAdminDisabled) {
