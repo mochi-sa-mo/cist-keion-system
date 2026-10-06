@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ログイン - 部室予約システム</title>
+    <title>ログイン - keionポータル</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4A90E2">
@@ -104,7 +104,7 @@
 <body>
 
     <div class="login-container">
-        <h1>部室予約システム</h1>
+        <h1>keionポータル</h1>
         
         <!-- メンテナンス時のメッセージ領域 -->
         <div id="maintenance-alert" class="alert-card maintenance-alert">
@@ -118,9 +118,8 @@
             <div id="notice-content" class="alert-content"></div>
         </div>
 
-        <!-- ▼ 追加：本日のライブ案内領域（タップで live_timetable.html へ遷移） ▼ -->
         <a href="live_timetable.html" id="live-banner-alert" class="alert-card live-banner-alert">
-            <h3>🎸 本日のライブ</h3>
+            <h3>本日のライブ</h3>
             <div id="live-banner-content" class="alert-content" style="font-weight: bold;"></div>
             <span class="live-banner-link-hint">タイムテーブルを見る →</span>
         </a>
@@ -148,7 +147,7 @@
 
         let isMaintenanceMode = false;
 
-        // メンテナンス状態のリアルタイム監視
+        // メンテナンス状態
         onSnapshot(doc(db, "systemSettings", "maintenance"), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -164,7 +163,7 @@
             }
         });
 
-        // お知らせ状態のリアルタイム監視
+        // お知らせ状態
         onSnapshot(doc(db, "systemSettings", "systemNotice"), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -180,7 +179,7 @@
             }
         });
 
-        // ▼ 追加：本日のライブ案内（liveBanner）のリアルタイム監視 ▼
+        // 本日のライブ案内
         onSnapshot(doc(db, "systemSettings", "liveBanner"), (docSnap) => {
             const liveBannerBox = document.getElementById('live-banner-alert');
             const liveBannerContent = document.getElementById('live-banner-content');
