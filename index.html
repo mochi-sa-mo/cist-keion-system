@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>部室予約システム - トップ</title>
+    <title>keionポータル</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4A90E2">
@@ -142,11 +142,11 @@
 
     <div class="announcements">
         <div class="announcement-box">
-            <h3>📢 イベント・告知（タップして詳細を確認）</h3>
+            <h3>イベント・告知</h3>
             <ul id="event-list"></ul>
         </div>
         <div class="announcement-box">
-            <h3>⚠️ 締め切り（タップして詳細を確認）</h3>
+            <h3>締め切り</h3>
             <ul id="deadline-list"></ul>
         </div>
     </div>
@@ -297,7 +297,7 @@
                         const alertDiv = document.createElement('div');
                         alertDiv.className = 'rsvp-alert';
                         alertDiv.innerHTML = `
-                            <div class="rsvp-alert-text">⚠️ 「${live.name}」の打ち上げ参加回答が未提出です！</div>
+                            <div class="rsvp-alert-text">⚠️ 「${live.name}」の打ち上げ参加回答をお願いします！</div>
                             <a href="rsvp.html" class="btn-rsvp-link">今すぐ回答する</a>
                         `;
                         container.appendChild(alertDiv);
@@ -368,7 +368,7 @@
                         container.appendChild(alertDiv);
                         
                         document.getElementById(`btn-sheet-alert-${liveId}`).onclick = () => {
-                            openDetailModal("📝 シート提出先", info.announcement, 'sheet');
+                            openDetailModal("シート提出先", info.announcement, 'sheet');
                         };
                     }
                 }
@@ -625,14 +625,13 @@
                 ];
             } else if (type === 'reservation') {
                 let statusMsg = data.confirmed ? '確定済み' : '承認待ち（保留中）';
-                if (data.isAdditional && !data.confirmed) statusMsg = '追加希望（承認待ち）';
+                if (data.isAdditional && !data.confirmed) statusMsg = '追加希望';
                 if (data.isAdditional && data.confirmed) statusMsg = '確定済み（追加予約）';
-                if (data.rejected) statusMsg = '落選（管理者により却下されました）';
+                if (data.rejected) statusMsg = '落選';
                 if (data.cancelRequested) statusMsg = '予約取り消し';
 
                 fields = [
                     { label: 'バンド名', value: data.bandName },
-                    // ▼ 予約者（学籍番号）を表示する項目を追加
                     { label: '予約者 (学籍番号)', value: data.userId || '未記録' },
                     { label: '備考', value: data.notes },
                     { label: '状態', value: statusMsg }
