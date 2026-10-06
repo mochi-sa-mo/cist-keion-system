@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>追加予約 - 部室予約システム</title>
+    <title>追加予約 - keionポータル</title>
     <style>
         /* 画面全体の横揺れを防ぎ、要素の幅計算を統一する */
         html, body {
@@ -254,7 +254,7 @@
         </div>
 
         <div class="form-section">
-            <h2 style="margin-top: 0; font-size: 1.1em; color: #2e7d32;">追加予約の希望提出</h2>
+            <h2 style="margin-top: 0; font-size: 1.1em; color: #2e7d32;">追加予約の希望</h2>
             <p style="font-size: 0.8em; color: #666; margin-top: -10px;">※管理者の承認後に確定されます。</p>
             
             <label style="font-weight: bold; font-size: 0.9em; display:block; margin-bottom:4px;">選択中の日程</label>
@@ -299,7 +299,6 @@
         import { collection, onSnapshot, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
-        // ▼ 画面を開いた瞬間にヘッダーを「戻るボタンのみ（back）」で生成！
         setupHeader('追加予約', 'back');
 
         const days = ['日', '月', '火', '水', '木', '金', '土'];
@@ -365,8 +364,6 @@
                 });
 
                 submitBtn.disabled = false; 
-
-                // ▼ バンドが変わったらカレンダーを再描画（自バンドの申請済をチェックするため）
                 bandSelect.addEventListener('change', initTsuikaGrid);
                 initTsuikaGrid();
 
@@ -426,7 +423,6 @@
                     dayCell.classList.add('today-col');
                 }
                 
-                // ▼ 日付も一緒に表示する
                 const dateParts = currentWeekDates[dIndex].split('-');
                 const m = parseInt(dateParts[1], 10);
                 const d = parseInt(dateParts[2], 10);
@@ -451,7 +447,6 @@
                         cell.classList.add('today-col');
                     }
                     
-                    // ▼ 修正：曜日(s.day)ではなく、具体的な日付(s.date === targetDate)で予約不可を判定する ▼
                     const isAdminDisabled = dbDisabledSlots.some(s => s.date === targetDate && s.period === pIndex && s.blocked === true);
                     const cellRes = dbConfirmedReservations.filter(r => r.date === targetDate && r.period === pIndex);
                     
@@ -474,7 +469,6 @@
                         });
                     } 
                     else if (selectedBandId && myExistingRes.length > 0) {
-                        // 自バンドが既に申請済みの場合はグレーアウトしてクリック不可にする
                         cell.classList.add('has-existing');
                         const tag = document.createElement('div');
                         tag.className = 'faint-band-tag';
