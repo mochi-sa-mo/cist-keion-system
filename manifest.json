@@ -1,6 +1,6 @@
 {
-  "name": "部室予約システム",
-  "short_name": "部室予約",
+  "name": "keionポータル",
+  "short_name": "keion",
   "start_url": "./login.html",
   "display": "standalone",
   "background_color": "#f5f7fa",
