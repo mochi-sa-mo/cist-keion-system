@@ -88,7 +88,7 @@
         <div id="active-lives-info"></div>
 
         <h2 style="margin-top: 0; font-size: 1.2em; border-left: 5px solid #ff9800; padding-left: 8px;">出演エントリー申請</h2>
-        <p style="font-size: 0.85em; color: #666; line-height: 1.5;">
+        <p style="font-size: 0.85em; color: #666; line-height: 1.5;" id="form-description">
             あなたが代表権限を持つバンドを募集中のライブにエントリーさせます。
         </p>
 
@@ -117,7 +117,7 @@
                     <button type="button" class="btn-add" id="btn-add-member">＋ サポートメンバーを追加</button>
                 </div>
 
-                <!-- ▼ 追加：機材・備考入力エリア -->
+                <!-- ▼ 機材・備考入力エリア -->
                 <div style="background: #fff3e0; padding: 15px; border-radius: 8px; border: 1px solid #ffb300; margin-top: 25px;">
                     <h3 style="margin-top: 0; font-size: 1em; color: #e65100; border-bottom: 1px dashed #ffb300; padding-bottom: 5px;">🎤 機材・セッティング情報</h3>
                     
@@ -195,6 +195,7 @@
         setupHeader('ライブエントリー', 'back');
 
         let currentUserId = "";
+        let currentUserRole = "member"; // ▼ 追加：ユーザーの権限を保持
         let userBands = {}; 
         let myEntriesData = {}; 
         let editingEntryId = null; 
@@ -356,7 +357,16 @@
                     liveSelect.disabled = true;
                 }
 
-                const bandsQuery = query(collection(db, "bands"), where("leaders", "array-contains", currentUserId));
+                // ▼ 修正：もし useruser なら、自分が代表かどうかに関わらず【すべてのバンド】を取得する ▼
+                let bandsQuery;
+                if (currentUserRole === 'useruser' || currentUserRole === 'admin' || currentUserRole === 'adminadmin' || currentUserRole === 'sysadmin') {
+                    bandsQuery = collection(db, "bands"); // 制限なしで全バンド取得
+                    document.getElementById('form-description').innerHTML = 
+                        '<span style="color: #d32f2f; font-weight: bold;">【代理エントリーモード】</span><br>あなたは管理者（または特権ユーザー）として、システム上のすべてのバンドを代理でエントリーさせることができます。';
+                } else {
+                    bandsQuery = query(collection(db, "bands"), where("leaders", "array-contains", currentUserId));
+                }
+
                 const bandsSnap = await getDocs(bandsQuery);
                 
                 bandsSnap.forEach(doc => {
@@ -386,7 +396,14 @@
         async function loadMyEntries() {
             const myEntriesList = document.getElementById('my-entries-list');
             try {
-                const entriesQuery = query(collection(db, "liveEntries"), where("performerIds", "array-contains", currentUserId));
+                // ▼ 修正：もし useruser (特権)なら自分が performerIds にいなくても全エントリーを表示する ▼
+                let entriesQuery;
+                if (currentUserRole === 'useruser' || currentUserRole === 'admin' || currentUserRole === 'adminadmin' || currentUserRole === 'sysadmin') {
+                    entriesQuery = collection(db, "liveEntries");
+                } else {
+                    entriesQuery = query(collection(db, "liveEntries"), where("performerIds", "array-contains", currentUserId));
+                }
+                
                 const entriesSnap = await getDocs(entriesQuery);
 
                 myEntriesList.innerHTML = '';
@@ -403,11 +420,13 @@
                     myEntriesData[entryId] = data; 
 
                     const myInfo = data.performers.find(p => p.id === currentUserId);
-                    const partsArray = myInfo ? (myInfo.parts || (myInfo.part ? [myInfo.part] : ["不明"])) : ["不明"];
+                    const partsArray = myInfo ? (myInfo.parts || (myInfo.part ? [myInfo.part] : ["不明"])) : ["特権閲覧"];
                     const myPartStr = partsArray.join(', ');
                     
                     const myType = myInfo ? myInfo.type : "";
-                    const typeTag = myType !== "正規" ? `<span class="tag" style="background:#ff9800; color:white; padding:2px 6px; border-radius:4px; font-size:0.8em;">${myType}</span>` : `<span class="tag" style="background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em;">${myType}</span>`;
+                    const typeTag = myType && myType !== "正規" 
+                        ? `<span class="tag" style="background:#ff9800; color:white; padding:2px 6px; border-radius:4px; font-size:0.8em;">${myType}</span>` 
+                        : (myType === "正規" ? `<span class="tag" style="background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em;">${myType}</span>` : "");
 
                     const item = document.createElement('div');
                     item.className = 'entry-item';
@@ -496,7 +515,6 @@
             html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>【演奏メンバー構成】</strong></p>`;
             html += `<ul style="margin-top: 5px; padding-left: 20px;">`;
             
-            // ▼ 追加：メンバーを学籍番号（ID）順にソートして表示 ▼
             const sortedPerformers = [...data.performers].sort((a, b) => String(a.id).localeCompare(String(b.id)));
             sortedPerformers.forEach(p => {
                 let role = p.type === "正規" ? "" : ` <span style="font-size: 0.8em; color: #ff9800; font-weight: bold;">(${p.type})</span>`;
@@ -529,7 +547,6 @@
             const container = document.getElementById('members-container');
             container.innerHTML = '';
             
-            // ▼ 追加：編集画面の入力欄を学籍番号（ID）順にソートして生成 ▼
             const sortedPerformers = [...data.performers].sort((a, b) => String(a.id).localeCompare(String(b.id)));
             sortedPerformers.forEach(p => {
                 const partsArray = p.parts || (p.part ? [p.part] : []);
@@ -565,6 +582,7 @@
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUserId = user.email.split('@')[0];
+                currentUserRole = localStorage.getItem('userRole') || "member"; // ▼ 追加
                 initializeForm(); 
             } else {
                 window.location.href = "login.html";
@@ -579,7 +597,6 @@
             if (bandId && userBands[bandId]) {
                 const band = userBands[bandId];
                 
-                // ▼ 追加：バンド選択時に自動入力されるメンバーを学籍番号（ID）順にソート ▼
                 const sortedMembers = [...band.memberDetails].sort((a, b) => String(a.id).localeCompare(String(b.id)));
                 sortedMembers.forEach(m => {
                     const partsArray = m.parts || (m.part ? [m.part] : []);
@@ -657,7 +674,6 @@
                 errorMsg.style.display = 'block'; return;
             }
 
-            // ▼ 追加：保存データ作成前（確認画面の表示前）にメンバーを学籍番号（ID）順にソートする ▼
             performers.sort((a, b) => String(a.id).localeCompare(String(b.id)));
 
             pendingAction = editingEntryId ? 'update' : 'create';
@@ -724,7 +740,7 @@
                         title: entryToDelete.liveName,
                         bandName: entryToDelete.bandName,
                         userId: currentUserId,
-                        detail: `一般部員(${currentUserId})がライブ「${entryToDelete.liveName}」から「${entryToDelete.bandName}」のエントリーを辞退(削除)しました`
+                        detail: `ユーザー(${currentUserId})がライブ「${entryToDelete.liveName}」から「${entryToDelete.bandName}」のエントリーを辞退(削除)しました`
                     });
 
                     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -760,7 +776,7 @@
                             title: pendingEntryData.liveName,
                             bandName: pendingEntryData.bandName,
                             userId: currentUserId,
-                            detail: `一般部員(${currentUserId})がライブ「${pendingEntryData.liveName}」への「${pendingEntryData.bandName}」のエントリー内容を更新しました`
+                            detail: `ユーザー(${currentUserId})がライブ「${pendingEntryData.liveName}」への「${pendingEntryData.bandName}」のエントリー内容を更新しました`
                         });
 
                         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -777,7 +793,7 @@
                             title: pendingEntryData.liveName,
                             bandName: pendingEntryData.bandName,
                             userId: currentUserId,
-                            detail: `一般部員(${currentUserId})がライブ「${pendingEntryData.liveName}」に「${pendingEntryData.bandName}」でエントリーを新規作成しました`
+                            detail: `ユーザー(${currentUserId})がライブ「${pendingEntryData.liveName}」に「${pendingEntryData.bandName}」でエントリーを新規作成しました`
                         });
 
                         window.scrollTo({ top: 0, behavior: 'smooth' });
