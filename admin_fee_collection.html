@@ -209,7 +209,8 @@
 
                 // (フェイルセーフ) もしtargetUserIdsが空なら、承認済みエントリーから自動抽出する
                 if (userIds.length === 0) {
-                    const entryQ = query(collection(db, "liveEntries"), where("liveId", "==", currentLiveId), where("status", "==", "approved"));
+                    // ▼ 修正：サブコレクション（lives/{liveId}/entries）から取得するように変更
+                    const entryQ = query(collection(db, "lives", currentLiveId, "entries"), where("status", "==", "approved"));
                     const entrySnap = await getDocs(entryQ);
                     const idSet = new Set();
                     entrySnap.forEach(d => {
@@ -363,4 +364,3 @@
     </script>
 </body>
 </html>
-
