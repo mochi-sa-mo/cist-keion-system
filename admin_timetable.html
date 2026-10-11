@@ -302,7 +302,7 @@
             <p style="font-size: 0.85em; color: #666; margin-top: -10px; margin-bottom: 15px; line-height: 1.5;">
                 ※順番・開始時刻・終了時刻を入力したら<strong>「💾 順番・時刻を一括保存」</strong>を押してください。<br>
                 ※<strong>【🤖 自動モード】</strong>の時は、設定した時刻になると自動で「NOW」「終了（セトリ公開）」に切り替わります。<br>
-                ※押し・巻きが発生した場合は、下の各枠にある<strong>「🔥 NOWにする」</strong>等を押すと、即座に<strong>【🖐️️ 手動モード】</strong>へ切り替わり、手動で進行をコントロールできます。
+                ※押し・巻きが発生した場合は、下の各枠にある<strong>「🔥 NOWにする」</strong>等を押すと、即座に<strong>【🖐 手動モード】</strong>へ切り替わり、手動で進行をコントロールできます。
             </p>
 
             <div id="timetable-list" class="tt-list"></div>
@@ -550,25 +550,24 @@
             if (unsubscribeBands) unsubscribeBands();
             if (unsubscribeEvents) unsubscribeEvents();
 
-            const qBands = query(collection(db, "liveEntries"), where("liveId", "==", liveId));
+            // ▼ 修正: サブコレクションから取得 ▼
+            const qBands = query(collection(db, "lives", liveId, "entries"), where("status", "==", "approved"));
             unsubscribeBands = onSnapshot(qBands, (snap) => {
                 currentBands = [];
                 snap.forEach(d => {
                     const data = d.data();
-                    if (data.status === 'approved') {
-                        const { s, e } = parseLegacyTime(data);
-                        currentBands.push({
-                            id: d.id,
-                            itemType: 'band',
-                            title: data.bandName,
-                            comment: data.prComment || '',
-                            setlist: data.setlist || '',
-                            order: typeof data.order === 'number' ? data.order : 99,
-                            startTime: s,
-                            endTime: e,
-                            playStatus: data.playStatus || 'waiting'
-                        });
-                    }
+                    const { s, e } = parseLegacyTime(data);
+                    currentBands.push({
+                        id: d.id,
+                        itemType: 'band',
+                        title: data.bandName,
+                        comment: data.prComment || '',
+                        setlist: data.setlist || '',
+                        order: typeof data.order === 'number' ? data.order : 99,
+                        startTime: s,
+                        endTime: e,
+                        playStatus: data.playStatus || 'waiting'
+                    });
                 });
                 renderTimetableList();
             });
@@ -711,13 +710,18 @@
                 itemEls.forEach(el => {
                     const id = el.dataset.id;
                     const type = el.dataset.type;
-                    const colName = type === 'event' ? 'liveEvents' : 'liveEntries';
+                    
+                    // ▼ 修正: サブコレクションのパスを構築 ▼
+                    const docRef = type === 'event' 
+                        ? doc(db, 'liveEvents', id) 
+                        : doc(db, 'lives', selectedLiveId, 'entries', id);
+
                     const orderVal = Number(el.querySelector('.input-order').value) || 1;
                     const startVal = el.querySelector('.input-start').value.trim();
                     const endVal = el.querySelector('.input-end').value.trim();
                     const timeSlotStr = (startVal || endVal) ? `${startVal} - ${endVal}` : '';
 
-                    batch.update(doc(db, colName, id), {
+                    batch.update(docRef, {
                         order: orderVal,
                         startTime: startVal,
                         endTime: endVal,
@@ -735,35 +739,44 @@
             }
         };
 
-        // 手動進行ステータス切り替え（自動で手動モードに移行）
+        // 手動進行ステータス切り替え
         async function changePlayStatusManual(targetItem, newStatus, allItems) {
             try {
                 const batch = writeBatch(db);
-                const targetCol = targetItem.itemType === 'event' ? 'liveEvents' : 'liveEntries';
+                
+                // ▼ 修正: ターゲットとなるドキュメントの参照 ▼
+                const targetRef = targetItem.itemType === 'event' 
+                    ? doc(db, 'liveEvents', targetItem.id) 
+                    : doc(db, 'lives', selectedLiveId, 'entries', targetItem.id);
 
-                // 自動モード中だった場合は、自動的に「手動モード(manual)」へ切り替え、
-                // 他の枠の現在の実効ステータスも固定してズレを防ぐ
                 if (getLiveMode() === 'auto') {
                     batch.update(doc(db, "lives", selectedLiveId), { timetableMode: 'manual' });
                     allItems.forEach(other => {
                         if (other.id !== targetItem.id) {
-                            const otherCol = other.itemType === 'event' ? 'liveEvents' : 'liveEntries';
+                            // ▼ 修正: 他のドキュメントの参照 ▼
+                            const otherRef = other.itemType === 'event' 
+                                ? doc(db, 'liveEvents', other.id) 
+                                : doc(db, 'lives', selectedLiveId, 'entries', other.id);
+
                             const currentEff = getEffectiveStatus(other);
                             const nextOtherStatus = (newStatus === 'playing' && currentEff === 'playing') ? 'finished' : currentEff;
-                            batch.update(doc(db, otherCol, other.id), { playStatus: nextOtherStatus });
+                            batch.update(otherRef, { playStatus: nextOtherStatus });
                         }
                     });
                 } else if (newStatus === 'playing') {
-                    // すでに手動モードで「🔥 NOWにする」が押された場合、前のplaying枠を自動で「finished(終了)」にする
                     allItems.forEach(other => {
                         if (other.id !== targetItem.id && other.playStatus === 'playing') {
-                            const otherCol = other.itemType === 'event' ? 'liveEvents' : 'liveEntries';
-                            batch.update(doc(db, otherCol, other.id), { playStatus: 'finished' });
+                            // ▼ 修正: 他のドキュメントの参照 ▼
+                            const otherRef = other.itemType === 'event' 
+                                ? doc(db, 'liveEvents', other.id) 
+                                : doc(db, 'lives', selectedLiveId, 'entries', other.id);
+
+                            batch.update(otherRef, { playStatus: 'finished' });
                         }
                     });
                 }
 
-                batch.update(doc(db, targetCol, targetItem.id), { playStatus: newStatus });
+                batch.update(targetRef, { playStatus: newStatus });
                 await batch.commit();
             } catch (e) {
                 console.error("ステータス更新エラー:", e);
