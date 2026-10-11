@@ -401,26 +401,25 @@
             if (unsubBands) unsubBands();
             if (unsubEvents) unsubEvents();
 
-            const qBands = query(collection(db, "liveEntries"), where("liveId", "==", liveId));
+            // ▼ 修正: サブコレクションから取得 ▼
+            const qBands = query(collection(db, "lives", liveId, "entries"), where("status", "==", "approved"));
             unsubBands = onSnapshot(qBands, (snap) => {
                 currentBands = [];
                 snap.forEach(d => {
                     const data = d.data();
-                    if (data.status === 'approved') {
-                        const { s, e } = parseLegacyTime(data);
-                        currentBands.push({
-                            id: d.id,
-                            itemType: 'band',
-                            title: data.bandName || '名称未設定バンド',
-                            comment: data.prComment || '',
-                            setlist: data.setlist || '',
-                            order: typeof data.order === 'number' ? data.order : 99,
-                            startTime: s,
-                            endTime: e,
-                            timeSlot: (s || e) ? `${s} ～ ${e}` : (data.timeSlot || '時間未定'),
-                            playStatus: data.playStatus || 'waiting'
-                        });
-                    }
+                    const { s, e } = parseLegacyTime(data);
+                    currentBands.push({
+                        id: d.id,
+                        itemType: 'band',
+                        title: data.bandName || '名称未設定バンド',
+                        comment: data.prComment || '',
+                        setlist: data.setlist || '',
+                        order: typeof data.order === 'number' ? data.order : 99,
+                        startTime: s,
+                        endTime: e,
+                        timeSlot: (s || e) ? `${s} ～ ${e}` : (data.timeSlot || '時間未定'),
+                        playStatus: data.playStatus || 'waiting'
+                    });
                 });
                 renderTimetable();
             });
