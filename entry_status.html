@@ -12,6 +12,7 @@
     </script>
 
     <style>
+        * { box-sizing: border-box; }
         :root { --primary-color: #4A90E2; --bg-color: #f5f7fa; --border-color: #ccc; }
         body.modal-open { overflow: hidden; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg-color); margin: 0; padding: 20px; color: #333; }
@@ -19,8 +20,44 @@
         .container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto 20px; }
         .section-title { margin-top: 0; margin-bottom: 15px; padding-left: 10px; font-size: 1.3em; border-left: 5px solid #ff9800; }
 
+        /* ▼ ライブ毎のグルーピング用アコーディオン ▼ */
+        details.live-group {
+            margin-bottom: 20px;
+            border: 2px solid var(--primary-color);
+            border-radius: 8px;
+            background: #fff;
+            overflow: hidden;
+        }
+        details.live-group summary {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #fff;
+            background: var(--primary-color);
+            padding: 12px 15px;
+            cursor: pointer;
+            outline: none;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        details.live-group summary::-webkit-details-marker { display: none; }
+        details.live-group summary::after {
+            content: "▼ 開く";
+            font-size: 0.85em;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+        details.live-group[open] summary::after { content: "▲ 閉じる"; }
+        .live-group-content {
+            padding: 15px;
+            background: #f9fbfd;
+        }
+
         /* エントリー状況カード */
-        .status-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .status-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background: #fff; }
+        .status-card:last-child { margin-bottom: 0; }
         .status-card.pending { border-left: 5px solid #ff9800; }
         .status-card.rejected { border-left: 5px solid #9e9e9e; background: #f5f5f5; opacity: 0.8; }
         .status-card.approved { border-left: 5px solid #4caf50; background: #f1f8e9; }
@@ -56,7 +93,9 @@
 <body>
 
     <div class="container">
-        <div class="section-title">🎸 現在の審査状況</div>
+        <p style="font-size: 0.85em; color: #666; margin-top: -5px; margin-bottom: 15px; line-height: 1.5;" id="admin-notice"></p>
+
+        <div class="section-title">🎸 現在進行中のライブ</div>
         <div id="active-container"><p style="color: #999; text-align: center;">読込中...</p></div>
 
         <div class="history-divider"><span>過去の履歴</span></div>
@@ -117,11 +156,21 @@
         setupHeader('審査状況・履歴', 'back');
 
         let currentUserId = "";
+        let currentUserRole = "member";
         let myEntriesData = {}; 
         let editingEntryId = null;
 
         onAuthStateChanged(auth, (user) => {
-            if (user) { currentUserId = user.email.split('@')[0]; loadData(); } 
+            if (user) {
+                currentUserId = user.email.split('@')[0];
+                currentUserRole = localStorage.getItem('userRole') || "member";
+                
+                // 特権ユーザー向けのお知らせ表示
+                if (['sysadmin', 'adminadmin', 'useruser', 'admin'].includes(currentUserRole)) {
+                    document.getElementById('admin-notice').innerHTML = '<span style="color: #d32f2f; font-weight: bold;">【特権アクセスモード】</span><br>あなたは管理者（または特権ユーザー）として、すべてのバンドのエントリー情報を閲覧・編集できます。';
+                }
+                loadData(); 
+            } 
             else { window.location.href = "login.html"; }
         });
 
@@ -169,7 +218,7 @@
 
             } catch (error) {
                 console.error("保存エラー:", error);
-                alert("保存に失敗しました。");
+                alert("保存に失敗しました。権限が不足している可能性があります。");
             } finally {
                 btn.disabled = false;
                 showConfirmBtn.disabled = false;
@@ -177,12 +226,25 @@
             }
         });
 
+        // ライブIDごとのHTMLアコーディオンを生成する関数
+        function createLiveGroupCard(liveName, entriesHtml, isOpen = false) {
+            if (!entriesHtml) return '';
+            const openAttr = isOpen ? 'open' : '';
+            return `
+                <details class="live-group" ${openAttr}>
+                    <summary>🎤 ${liveName}</summary>
+                    <div class="live-group-content">
+                        ${entriesHtml}
+                    </div>
+                </details>
+            `;
+        }
+
         async function loadData() {
             const activeContainer = document.getElementById('active-container');
             const historyContainer = document.getElementById('history-container');
             
             try {
-                // ▼ 修正：自分が所属しているすべてのバンド(memberIds)を取得し、代表者以外でも所属バンドのエントリーをすべて確認できるようにする ▼
                 const [snapMyBands, snapAllEntries, snapLives] = await Promise.all([
                     getDocs(query(collection(db, "bands"), where("memberIds", "array-contains", currentUserId))),
                     getDocs(collection(db, "liveEntries")),
@@ -193,23 +255,31 @@
                 snapMyBands.forEach(d => myBandIds.add(d.id));
 
                 const liveMaster = {};
-                snapLives.forEach(d => { liveMaster[d.id] = d.data(); });
+                snapLives.forEach(d => { liveMaster[d.id] = { id: d.id, ...d.data() }; });
 
-                activeContainer.innerHTML = ''; historyContainer.innerHTML = '';
-                let activeCount = 0; let historyCount = 0;
+                // ライブごとにエントリーを整理するための辞書
+                const activeLiveGroups = {};
+                const historyLiveGroups = {};
+                let activeEntryCount = 0;
+                let historyEntryCount = 0;
+
+                myEntriesData = {}; // グローバル辞書の初期化
 
                 snapAllEntries.forEach(d => {
                     const entry = d.data();
+                    const entryId = d.id;
+
                     const isPerformer = Array.isArray(entry.performerIds) && entry.performerIds.includes(currentUserId);
                     const isMyBand = myBandIds.has(entry.bandId);
+                    
+                    // ▼ 変更点：特権ユーザーならすべて表示、一般ユーザーなら自分のバンドのみ
+                    const isPrivileged = ['useruser'].includes(currentUserRole);
+                    if (!isPrivileged && !isPerformer && !isMyBand) return;
 
-                    // 出演メンバーに含まれているか、自分の所属バンドのエントリーであれば表示する
-                    if (!isPerformer && !isMyBand) return;
-
-                    const entryId = d.id;
                     myEntriesData[entryId] = entry; 
                     
-                    const liveInfo = liveMaster[entry.liveId] || { isActive: false };
+                    const liveInfo = liveMaster[entry.liveId] || { isActive: false, name: entry.liveName || "不明なライブ" };
+                    const liveId = entry.liveId || "unknown";
                     
                     let displayStatus = entry.status || 'pending';
                     if (liveInfo && liveInfo.isResultOpen !== true) displayStatus = 'pending';
@@ -237,28 +307,54 @@
                         memoryHtml = `<div style="font-size: 0.85em; color: #795548; background: #fff8e1; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #ffb74d; word-break: break-word;">みんなの思い出<br>${formattedText}</div>`;
                     }
 
-                    const card = document.createElement('div');
-                    card.className = `status-card ${cardClass}`;
-                    card.innerHTML = `
-                        <div><div class="badge">${badgeText}</div>${sheetBadge}</div>
-                        <div class="live-name">${entry.liveName}</div>
-                        <div class="band-name">🎸 バンド：${entry.bandName}</div>
-                        ${prHtml}
-                        ${memoryHtml}
-                        <div class="action-buttons"><button class="btn-small btn-info btn-show-detail" data-id="${entryId}">📄 エントリー詳細</button></div>
+                    const cardHtml = `
+                        <div class="status-card ${cardClass}">
+                            <div><div class="badge">${badgeText}</div>${sheetBadge}</div>
+                            <div class="band-name" style="font-size: 1.1em; color: #333;">🎸 バンド：${entry.bandName}</div>
+                            ${prHtml}
+                            ${memoryHtml}
+                            <div class="action-buttons"><button class="btn-small btn-info btn-show-detail" data-id="${entryId}">📄 エントリー詳細</button></div>
+                        </div>
                     `;
 
-                    card.querySelector('.btn-show-detail').addEventListener('click', (e) => showDetailsModal(e.target.getAttribute('data-id')));
-
+                    // ライブが進行中か過去かで振り分ける
                     if (liveInfo.isActive) {
-                        activeContainer.appendChild(card); activeCount++;
+                        if (!activeLiveGroups[liveId]) activeLiveGroups[liveId] = { name: liveInfo.name, html: '' };
+                        activeLiveGroups[liveId].html += cardHtml;
+                        activeEntryCount++;
                     } else {
-                        historyContainer.appendChild(card); historyCount++;
+                        if (!historyLiveGroups[liveId]) historyLiveGroups[liveId] = { name: liveInfo.name, html: '' };
+                        historyLiveGroups[liveId].html += cardHtml;
+                        historyEntryCount++;
                     }
                 });
 
-                if (activeCount === 0) activeContainer.innerHTML = '<p style="color: #666; font-size: 0.9em; text-align: center;">現在進行中のエントリーはありません。</p>';
-                if (historyCount === 0) historyContainer.innerHTML = '<p style="color: #666; font-size: 0.9em; text-align: center;">過去の履歴はありません。</p>';
+                // HTMLの生成
+                activeContainer.innerHTML = '';
+                historyContainer.innerHTML = '';
+
+                if (activeEntryCount === 0) {
+                    activeContainer.innerHTML = '<p style="color: #666; font-size: 0.9em; text-align: center;">現在進行中のエントリーはありません。</p>';
+                } else {
+                    Object.values(activeLiveGroups).forEach(group => {
+                        // 進行中のライブはデフォルトでアコーディオンを開いておく
+                        activeContainer.innerHTML += createLiveGroupCard(group.name, group.html, true);
+                    });
+                }
+
+                if (historyEntryCount === 0) {
+                    historyContainer.innerHTML = '<p style="color: #666; font-size: 0.9em; text-align: center;">過去の履歴はありません。</p>';
+                } else {
+                    Object.values(historyLiveGroups).forEach(group => {
+                        // 過去のライブはデフォルトでアコーディオンを閉じておく
+                        historyContainer.innerHTML += createLiveGroupCard(group.name, group.html, false);
+                    });
+                }
+
+                // 動的生成されたボタンにイベントリスナーを再バインド
+                document.querySelectorAll('.btn-show-detail').forEach(btn => {
+                    btn.addEventListener('click', (e) => showDetailsModal(e.target.getAttribute('data-id')));
+                });
 
             } catch (error) {
                 console.error("データ取得エラー:", error);
@@ -274,10 +370,21 @@
             const prCommentText = data.prComment ? data.prComment.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
             const setlistText = data.setlist ? data.setlist.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
             
+            // ▼ 変更点：特権ユーザー（useruserなど）なら、無条件で編集ボタンを表示する
+            const isPrivileged = ['sysadmin', 'adminadmin', 'useruser', 'admin'].includes(currentUserRole);
+            const canEdit = isPrivileged || (Array.isArray(data.performerIds) && data.performerIds.includes(currentUserId));
+
+            let editButtonHtml = '';
+            if (canEdit) {
+                editButtonHtml = `<button id="btn-edit-setlist" class="btn-small" style="background: #fff; border: 1px solid #ffb74d; color: #e65100; padding: 2px 8px; font-size: 0.8em; border-radius: 4px;">✏️ 編集</button>`;
+            } else {
+                editButtonHtml = `<span style="font-size: 0.75em; color: #999;">閲覧のみ</span>`;
+            }
+
             html += `
                 <div style="margin-bottom: 5px; background: #fff3e0; padding: 6px 10px; border-radius: 4px; margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <strong style="color: #e65100;">🎵 コメント・演奏曲・思い出</strong>
-                    <button id="btn-edit-setlist" class="btn-small" style="background: #fff; border: 1px solid #ffb74d; color: #e65100; padding: 2px 8px; font-size: 0.8em; border-radius: 4px;">✏️ 編集</button>
+                    ${editButtonHtml}
                 </div>
                 <div style="padding: 10px; font-size: 0.9em; color: #555; background: #fff; border-radius: 4px; border: 1px dashed #00acc1; margin-bottom: 8px; word-break: break-word;">
                     <div style="font-size: 0.8em; font-weight: bold; color: #00838f; margin-bottom: 3px;">💬 当日パンフ用 ひとことコメント</div>
@@ -293,24 +400,26 @@
             html += `<li><strong>マイク:</strong> ${data.micCount || 0} 本</li><li><strong>キーボード:</strong> ${data.keyboardType || '使用しない'}</li><li><strong>備考:</strong><br>${data.entryNotes ? data.entryNotes.replace(/\n/g, '<br>') : 'なし'}</li></ul>`;
             
             html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>【演奏メンバー構成】</strong></p><ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
-            data.performers.forEach(p => {
+            
+            const sortedPerformers = [...data.performers].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+            sortedPerformers.forEach(p => {
                 let role = p.type === "正規" ? "" : ` <span style="font-size: 0.8em; color: #ff9800; font-weight: bold;">(${p.type})</span>`;
-                
                 const partsArray = p.parts || (p.part ? [p.part] : ["不明"]);
                 const partsStr = partsArray.join(', ');
-                
                 html += `<li><strong>[${partsStr}]</strong>： ${p.id} ${role}</li>`;
             });
             html += `</ul>`;
             
             document.getElementById('modal-details-content').innerHTML = html;
             
-            document.getElementById('btn-edit-setlist').addEventListener('click', () => {
-                editingEntryId = entryId;
-                document.getElementById('pr-comment-input').value = data.prComment || "";
-                document.getElementById('setlist-input').value = data.setlist || "";
-                document.getElementById('setlist-modal').style.display = 'flex';
-            });
+            if (canEdit) {
+                document.getElementById('btn-edit-setlist').addEventListener('click', () => {
+                    editingEntryId = entryId;
+                    document.getElementById('pr-comment-input').value = data.prComment || "";
+                    document.getElementById('setlist-input').value = data.setlist || "";
+                    document.getElementById('setlist-modal').style.display = 'flex';
+                });
+            }
 
             document.getElementById('details-modal').style.display = 'flex';
             document.body.classList.add('modal-open');
