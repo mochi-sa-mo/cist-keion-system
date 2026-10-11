@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データ移行スクリプト</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background: #f5f5f5; color: #333; }
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; text-align: center; }
+        h1 { color: #e65100; margin-top: 0; }
+        p { line-height: 1.6; }
+        .btn { padding: 15px 30px; font-size: 1.2em; font-weight: bold; background: #4A90E2; color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; margin-top: 20px; }
+        .btn:hover { background: #357abd; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        #log { margin-top: 20px; text-align: left; background: #eee; padding: 15px; border-radius: 4px; font-family: monospace; height: 200px; overflow-y: auto; white-space: pre-wrap;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 エントリーデータの引越し</h1>
+        <p>
+            古い <code>liveEntries</code> コレクションに残っているデータを、<br>
+            新しい <code>lives/{liveId}/entries</code> サブコレクションへコピーします。<br>
+            <strong style="color: red;">※この操作は1回だけ実行してください。</strong>
+        </p>
+        
+        <button id="btn-migrate" class="btn">データ移行を開始する</button>
+
+        <div id="log">ログがここに表示されます...</div>
+    </div>
+
+    <script type="module">
+        import { db } from "./firebase.js";
+        import { collection, getDocs, doc, writeBatch } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        const btn = document.getElementById('btn-migrate');
+        const logEl = document.getElementById('log');
+
+        function addLog(msg) {
+            logEl.textContent += `\n${msg}`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = "移行中...";
+            addLog("移行処理を開始しました...");
+
+            try {
+                // 1. 古いデータをすべて取得
+                addLog("古い liveEntries からデータを読み込んでいます...");
+                const snap = await getDocs(collection(db, "liveEntries"));
+                
+                if (snap.empty) {
+                    addLog("移行するデータが見つかりませんでした（0件）。");
+                    btn.textContent = "完了";
+                    return;
+                }
+
+                addLog(`${snap.size} 件のデータを発見しました。`);
+
+                // 2. 新しい場所へコピー（一括処理）
+                const batch = writeBatch(db);
+                let count = 0;
+
+                snap.forEach(d => {
+                    const data = d.data();
+                    const liveId = data.liveId;
+                    
+                    if (liveId) {
+                        // 新しいパス: lives/{liveId}/entries/{元のエントリーID}
+                        const newRef = doc(db, "lives", liveId, "entries", d.id);
+                        batch.set(newRef, data);
+                        count++;
+                        addLog(`-> 準備完了: [${data.bandName}] (LiveID: ${liveId})`);
+                    } else {
+                        addLog(`-> ⚠️ スキップ: ライブIDが不明なデータ (ID: ${d.id})`);
+                    }
+                });
+
+                addLog("データベースへ書き込みを実行中...");
+                await batch.commit();
+
+                addLog(`\n🎉 移行完了！ 合計 ${count} 件のデータを新しい箱にコピーしました。`);
+                btn.style.background = "#4caf50";
+                btn.textContent = "移行完了";
+
+            } catch (error) {
+                console.error(error);
+                addLog(`\n❌ エラーが発生しました: ${error.message}`);
+                alert("移行に失敗しました。コンソールのログを確認してください。");
+                btn.textContent = "エラー";
+            }
+        });
+    </script>
+</body>
+</html>
