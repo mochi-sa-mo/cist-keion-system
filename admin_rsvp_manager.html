@@ -415,7 +415,20 @@
                 const liveData = liveDoc.data();
                 document.getElementById('rsvp-details-text').value = liveData.rsvpDetails || "";
                 
-                const targetUserIds = liveData.targetUserIds || [];
+                let targetUserIds = liveData.targetUserIds || [];
+
+                // (フェイルセーフ) もしtargetUserIdsが空なら、承認済みエントリーから自動抽出する
+                if (targetUserIds.length === 0) {
+                    // ▼ 修正：サブコレクション（lives/{liveId}/entries）から取得するように変更
+                    const entryQ = query(collection(db, "lives", currentLiveId, "entries"), where("status", "==", "approved"));
+                    const entrySnap = await getDocs(entryQ);
+                    const idSet = new Set();
+                    entrySnap.forEach(d => {
+                        (d.data().performerIds || []).forEach(id => idSet.add(id));
+                    });
+                    targetUserIds = Array.from(idSet);
+                }
+
                 const allUserSet = new Set(targetUserIds);
 
                 const qRsvp = query(collection(db, "rsvps"), where("liveId", "==", currentLiveId));
