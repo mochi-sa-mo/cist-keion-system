@@ -149,8 +149,8 @@
     <script type="module">
         import { db, auth } from "./firebase.js";
         import { setupHeader } from "./Component.js";
-        
-        import { collection, getDocs, query, where, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        // ▼ 追加: collectionGroup をインポート ▼
+        import { collection, collectionGroup, getDocs, query, where, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
         setupHeader('審査状況・履歴', 'back');
@@ -204,7 +204,9 @@
             showConfirmBtn.textContent = "保存中...";
 
             try {
-                await updateDoc(doc(db, "liveEntries", editingEntryId), {
+                // ▼ 修正: サブコレクションのドキュメントを更新 ▼
+                const targetLiveId = myEntriesData[editingEntryId].liveId;
+                await updateDoc(doc(db, "lives", targetLiveId, "entries", editingEntryId), {
                     prComment: newPrComment,
                     setlist: newText
                 });
@@ -245,9 +247,10 @@
             const historyContainer = document.getElementById('history-container');
             
             try {
+                // ▼ 修正: collectionGroup を使って全ライブのサブコレクションを串刺し検索 ▼
                 const [snapMyBands, snapAllEntries, snapLives] = await Promise.all([
                     getDocs(query(collection(db, "bands"), where("memberIds", "array-contains", currentUserId))),
-                    getDocs(collection(db, "liveEntries")),
+                    getDocs(collectionGroup(db, "entries")), 
                     getDocs(collection(db, "lives")) 
                 ]);
 
@@ -273,7 +276,7 @@
                     const isMyBand = myBandIds.has(entry.bandId);
                     
                     // ▼ 変更点：特権ユーザーならすべて表示、一般ユーザーなら自分のバンドのみ
-                    const isPrivileged = ['useruser'].includes(currentUserRole);
+                    const isPrivileged = ['sysadmin', 'adminadmin', 'useruser', 'admin'].includes(currentUserRole);
                     if (!isPrivileged && !isPerformer && !isMyBand) return;
 
                     myEntriesData[entryId] = entry; 
@@ -358,6 +361,10 @@
 
             } catch (error) {
                 console.error("データ取得エラー:", error);
+                // ▼ 最初の1回だけ、ここでインデックス作成エラーがコンソールに出ます ▼
+                if (error.message.includes("requires an index")) {
+                    console.warn("インデックス作成用のリンクが発行されました。コンソールのエラーリンクをクリックして作成してください。");
+                }
                 activeContainer.innerHTML = '<p style="color: #d0021b;">通信エラーが発生しました。</p>';
             }
         }
