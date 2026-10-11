@@ -86,8 +86,6 @@
 </head>
 <body>
 
-    <!-- ヘッダー部分は Component.js で生成するため削除しました -->
-
     <div class="container">
         <div class="section-title"><span>🎤 ライブの審査・進行管理</span></div>
         <div class="success-message" id="main-success-msg"></div>
@@ -564,11 +562,11 @@
             container.innerHTML = '<p style="text-align: center;">データを取得中...</p>';
 
             try {
-                const snap = await getDocs(collection(db, "liveEntries"));
+                // ▼ 修正: サブコレクションから取得 ▼
+                const snap = await getDocs(collection(db, "lives", currentLiveId, "entries"));
                 entriesData = []; container.innerHTML = '';
                 snap.forEach(d => {
-                    const data = d.data();
-                    if (data.liveId === currentLiveId) { entriesData.push({ id: d.id, ...data }); }
+                    entriesData.push({ id: d.id, ...d.data() });
                 });
 
                 if (entriesData.length === 0) {
@@ -595,7 +593,6 @@
 
                     let memberHtml = "";
                     
-                    // ▼ 追加：メンバーを学籍番号（ID）順にソートして表示 ▼
                     const sortedPerformers = [...entry.performers].sort((a, b) => String(a.id).localeCompare(String(b.id)));
                     sortedPerformers.forEach(p => {
                         let role = p.type === "正規" ? "" : ` <span style="color:#ff9800; font-size:0.9em; font-weight:bold;">(${p.type})</span>`;
@@ -650,7 +647,8 @@
                             btn.disabled = true;
                             btn.textContent = '更新中...';
                             try {
-                                await updateDoc(doc(db, "liveEntries", entry.id), { sheetSubmitted: !isSubmitted });
+                                // ▼ 修正: サブコレクション内のドキュメントを更新 ▼
+                                await updateDoc(doc(db, "lives", currentLiveId, "entries", entry.id), { sheetSubmitted: !isSubmitted });
                                 await loadEntries(); 
                             } catch (error) {
                                 console.error(error);
@@ -675,7 +673,6 @@
 
             msg += `<div style="background: #eee; padding: 10px; margin-top: 10px; border-radius: 4px;"><strong>${entryData.bandName}</strong><br>`;
             
-            // ▼ 追加：確認モーダルでもメンバーを学籍番号（ID）順にソートして表示 ▼
             const sortedPerformers = [...entryData.performers].sort((a, b) => String(a.id).localeCompare(String(b.id)));
             sortedPerformers.forEach(p => { 
                 const partsArray = p.parts || (p.part ? [p.part] : ["不明"]);
@@ -760,7 +757,6 @@
                     row.push(escape(entry.keyboardType || '使用しない'));
                     row.push(escape(entry.entryNotes || ''));
 
-                    // ▼ 追加：CSV出力（バンド別）でもメンバーを学籍番号（ID）順にソート ▼
                     const sortedPerformers = [...(entry.performers || [])].sort((a, b) => String(a.id).localeCompare(String(b.id)));
                     
                     for (let i = 0; i < maxMembers; i++) {
@@ -780,7 +776,6 @@
                 csvContent += "学籍番号,氏名,パート,区分,所属バンド名\n";
                 
                 targetEntries.forEach(entry => {
-                    // ▼ 追加：CSV出力（個人別）でもメンバーを学籍番号（ID）順にソート ▼
                     const sortedPerformers = [...entry.performers].sort((a, b) => String(a.id).localeCompare(String(b.id)));
                     
                     sortedPerformers.forEach(p => {
@@ -844,7 +839,8 @@
                     if (action === 'approve') newStatus = 'approved';
                     if (action === 'reject') newStatus = 'rejected';
 
-                    await updateDoc(doc(db, "liveEntries", targetEntryId), { status: newStatus });
+                    // ▼ 修正: サブコレクション内のドキュメントを更新 ▼
+                    await updateDoc(doc(db, "lives", currentLiveId, "entries", targetEntryId), { status: newStatus });
                     
                     await loadEntries(); 
                     if (currentLiveState.isRsvpOpen) { await updateTargetUserIds(); }
