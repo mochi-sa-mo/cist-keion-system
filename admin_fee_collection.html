@@ -15,6 +15,7 @@
 
     <style>
         :root { --primary-color: #4caf50; --bg-color: #f5f7fa; --border-color: #ccc; }
+        body.modal-open { overflow: hidden; } /* 追加: モーダル展開時のスクロール防止 */
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg-color); margin: 0; padding: 15px; color: #333; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--border-color); flex-wrap: wrap; gap: 10px; }
         
@@ -23,6 +24,11 @@
         
         .btn-nav { background-color: #e0e0e0; color: #333; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; text-decoration: none; transition: 0.2s;} 
         .btn-nav:hover { background-color: #d0d0d0; }
+        
+        /* 追加: 辞書ボタン用スタイル */
+        .btn-info { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; background-color: #00bcd4; color: white; font-weight: bold; transition: 0.2s; text-align: center; }
+        .btn-info:hover { background-color: #0097a7; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; text-align: center; }
 
         select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 1em; margin-bottom: 20px; background: #fff;}
         select.filter-select { padding: 6px; font-size: 0.9em; width: auto; margin-bottom: 0; margin-left: 10px; border: 2px solid var(--primary-color);}
@@ -51,6 +57,14 @@
         input:checked + .slider { background-color: var(--primary-color); }
         input:checked + .slider:before { transform: translateX(30px); }
 
+        /* 追加: モーダルのスタイル */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #fff; padding: 20px; border-radius: 8px; width: 450px; max-width: 95%; max-height: 90vh; overflow-y: auto; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; }
+        .confirm-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .confirm-actions .btn-nav, .confirm-actions .btn { flex: 1; padding: 12px; }
+        .form-group { margin-bottom: 15px; }
+        textarea { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; background: #fff; font-size: 1em; }
+
         /* トースト通知 */
         #toast {
             visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; 
@@ -66,6 +80,8 @@
     <header>
         <h1>💰 出演料 集金管理</h1>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <!-- ▼ 追加：辞書ボタン ▼ -->
+            <button class="btn-info" id="btn-open-dict">📖 名簿辞書設定</button>
             <a href="admin.html" class="btn-nav">← 戻る</a>
         </div>
     </header>
@@ -121,6 +137,20 @@
         <div id="loading-msg" style="color: #999; text-align: center; margin-top: 20px;">ライブを選択してください</div>
     </div>
 
+    <!-- ▼ 追加：辞書登録モーダル ▼ -->
+    <div class="modal" id="dict-modal">
+        <div class="modal-content" style="width: 500px; max-width: 95%;">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #00bcd4; padding-bottom: 5px; color: #0097a7;">📖 ローカル名簿辞書の登録</h3>
+            <div class="form-group">
+                <textarea id="dict-textarea" placeholder="例：&#10;230000 山田太郎&#10;240001 鈴木花子" style="min-height: 150px;"></textarea>
+            </div>
+            <div class="confirm-actions">
+                <button class="btn-nav" id="btn-close-dict">キャンセル</button>
+                <button class="btn btn-info" id="btn-save-dict">辞書を保存</button>
+            </div>
+        </div>
+    </div>
+
     <!-- トースト通知 -->
     <div id="toast">保存しました</div>
 
@@ -129,7 +159,8 @@
         import { collection, getDocs, getDoc, doc, setDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
         let currentLiveId = "";
-        let nameDictionary = {};
+        // ▼ 変更：sessionStorageから辞書を読み込む処理を追加
+        let nameDictionary = JSON.parse(sessionStorage.getItem('adminNameDictionary') || '{}');
         let participants = []; 
 
         window.onload = async function() {
@@ -138,6 +169,20 @@
             
             // 出演料が変更されたら、即座に金額を再計算する
             document.getElementById('fee-input').addEventListener('input', updateCountersAndAmounts);
+
+            // ▼ 追加：辞書モーダルのイベント設定
+            document.getElementById('btn-open-dict').onclick = () => {
+                let text = "";
+                for (const [id, name] of Object.entries(nameDictionary)) { text += `${id}\t${name}\n`; }
+                document.getElementById('dict-textarea').value = text;
+                document.getElementById('dict-modal').style.display = 'flex';
+                document.body.classList.add('modal-open');
+            };
+            document.getElementById('btn-close-dict').onclick = () => { 
+                document.getElementById('dict-modal').style.display = 'none'; 
+                document.body.classList.remove('modal-open');
+            };
+            document.getElementById('btn-save-dict').onclick = saveDictionary;
 
             await loadNameDictionary();
             init();
@@ -148,10 +193,45 @@
             try {
                 const dictDoc = await getDoc(doc(db, "systemSettings", "nameDictionary"));
                 if (dictDoc.exists()) {
-                    nameDictionary = dictDoc.data();
+                    // ▼ 変更：DBとsessionStorageを統合
+                    nameDictionary = { ...nameDictionary, ...dictDoc.data() };
+                    sessionStorage.setItem('adminNameDictionary', JSON.stringify(nameDictionary));
                 }
             } catch (e) {
                 console.warn("名簿辞書の取得に失敗しました", e);
+            }
+        }
+
+        // ▼ 追加：辞書の保存処理
+        function saveDictionary() {
+            const text = document.getElementById('dict-textarea').value;
+            const lines = text.split('\n');
+            const newDict = {};
+            let count = 0;
+
+            lines.forEach(line => {
+                const parts = line.split(/[\t, , ]+/);
+                if (parts.length >= 2) {
+                    const id = parts[0].trim();
+                    const name = parts.slice(1).join(" ").trim(); 
+                    if (id.length > 0 && name.length > 0) { 
+                        newDict[id] = name; count++;
+                    }
+                }
+            });
+
+            nameDictionary = newDict;
+            sessionStorage.setItem('adminNameDictionary', JSON.stringify(nameDictionary));
+            document.getElementById('dict-modal').style.display = 'none';
+            document.body.classList.remove('modal-open');
+            
+            showToast(`📖 名簿辞書を ${count} 件保存しました`);
+            // リストを再描画して新しい名前を反映
+            if (currentLiveId && participants.length > 0) {
+                participants.forEach(p => {
+                    p.name = nameDictionary[p.userId] || p.name;
+                });
+                renderList();
             }
         }
 
@@ -209,7 +289,6 @@
 
                 // (フェイルセーフ) もしtargetUserIdsが空なら、承認済みエントリーから自動抽出する
                 if (userIds.length === 0) {
-                    // ▼ 修正：サブコレクション（lives/{liveId}/entries）から取得するように変更
                     const entryQ = query(collection(db, "lives", currentLiveId, "entries"), where("status", "==", "approved"));
                     const entrySnap = await getDocs(entryQ);
                     const idSet = new Set();
