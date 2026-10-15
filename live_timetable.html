@@ -393,7 +393,7 @@
 
             const activeLive = openLives.find(l => l.id === currentLiveId);
             if (activeLive) {
-                titleText.textContent = `🎸 ${activeLive.name}`;
+                titleText.textContent = `${activeLive.name}`;
             }
         }
 
@@ -530,7 +530,7 @@
                             ${timeHtml}
                             ${badgeHtml}
                         </div>
-                        <div class="band-name">🎸 バンド：${escapeHtml(item.title)}</div>
+                        <div class="band-name">${escapeHtml(item.title)}</div>
                         ${commentHtml}
                         ${setlistHtml}
                     `;
