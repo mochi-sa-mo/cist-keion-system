@@ -251,7 +251,7 @@
                 currentUserId = user.email.split('@')[0];
                 await loadMyBands();
                 checkUnansweredRsvps();
-                checkUnsubmittedSheets(); // ▼ 追加：シート未提出のチェックを実行
+                checkUnsubmittedSheets(); 
             }
         });
 
@@ -446,7 +446,6 @@
                     if (item.createdAt) {
                         const createdDate = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
                         const createdDay = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
-                        
                         const diffDaysNew = Math.floor((today - createdDay) / (1000 * 60 * 60 * 24));
                         
                         if (diffDaysNew >= 0 && diffDaysNew <= 2) {
@@ -457,8 +456,18 @@
                         }
                     }
 
-                    if (item.date) {
-                        const targetDate = new Date(item.date);
+                    // ▼ 変更：種別によって基準とする日付を切り替える ▼
+                    let targetDateStr = null;
+                    if (item.type === 'event') {
+                        // イベントの場合は「行われる日にち (date)」を基準にする
+                        targetDateStr = item.date;
+                    } else if (item.type === 'deadline' || item.type === 'sheet') {
+                        // 締め切りの場合は「非表示日時 (expire)」を基準にする
+                        targetDateStr = item.expire;
+                    }
+
+                    if (targetDateStr) {
+                        const targetDate = new Date(targetDateStr);
                         
                         if (!isNaN(targetDate.getTime())) {
                             const targetDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
@@ -532,7 +541,6 @@
                 if (currentWeekDates[dIndex] === todayStr) {
                     dayCell.classList.add('today-col');
                 }
-                // ▼ 変更：日付も一緒に表示する
                 const dateParts = currentWeekDates[dIndex].split('-');
                 const m = parseInt(dateParts[1], 10);
                 const d = parseInt(dateParts[2], 10);
@@ -560,6 +568,7 @@
                         r.deleted !== true
                     );
 
+                    // ▼ 変更：申請順（古い順）にソート ▼
                     cellReservations.sort((a, b) => {
                         const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
                         const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
