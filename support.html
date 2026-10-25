@@ -70,13 +70,13 @@
     <div class="container">
         <!-- マニュアルへのリンクエリア -->
         <div class="manual-card">
-            <h2 style="margin-top: 0; color: #2e7d32; font-size: 1.2em;">📖 まずは使い方を確認</h2>
+            <h2 style="margin-top: 0; color: #2e7d32; font-size: 1.2em;">まずは使い方を確認</h2>
             <p>システムの詳しい使い方や、よくある質問はマニュアルにまとめています。<br>お問い合わせの前に一度ご確認ください。</p>
             <!-- ▼ 変更：hrefを空にし、idを付与。JSでURLをセットします -->
             <a href="#" target="_blank" class="btn btn-manual" id="manual-link">読込中...</a>
         </div>
 
-        <h2 class="section-title">✉️ 管理者へのお問い合わせ</h2>
+        <h2 class="section-title">管理者へのお問い合わせ</h2>
         <p style="font-size: 0.85em; color: #666; line-height: 1.5; margin-bottom: 20px;">
             マニュアルを見ても解決しない場合や、システムの不具合を見つけた場合はこちらからご連絡ください。<br>
             ※システム上からの返信機能はありません。確認次第、必要に応じて個別にご連絡します。
@@ -155,11 +155,11 @@
             if (userRole === 'admin' || userRole === 'sysadmin') {
                 // 管理者の場合
                 manualBtn.href = adminManualUrl;
-                manualBtn.textContent = "管理者用マニュアルを開く ↗";
+                manualBtn.textContent = "管理者用説明書を開く ↗";
             } else {
                 // 一般部員の場合
                 manualBtn.href = userManualUrl;
-                manualBtn.textContent = "取扱説明書（マニュアル）を開く ↗";
+                manualBtn.textContent = "取扱説明書を開く";
             }
         }
 
