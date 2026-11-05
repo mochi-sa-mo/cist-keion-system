@@ -95,7 +95,7 @@
     <div class="container">
         <p style="font-size: 0.85em; color: #666; margin-top: -5px; margin-bottom: 15px; line-height: 1.5;" id="admin-notice"></p>
 
-        <div class="section-title">★　現在進行中のライブ</div>
+        <div class="section-title">★ 現在進行中のライブ</div>
         <div id="active-container"><p style="color: #999; text-align: center;">読込中...</p></div>
 
         <div class="history-divider"><span>過去の履歴</span></div>
@@ -149,7 +149,6 @@
     <script type="module">
         import { db, auth } from "./firebase.js";
         import { setupHeader } from "./Component.js";
-        // ▼ 追加: collectionGroup をインポート ▼
         import { collection, collectionGroup, getDocs, query, where, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
@@ -204,7 +203,6 @@
             showConfirmBtn.textContent = "保存中...";
 
             try {
-                // ▼ 修正: サブコレクションのドキュメントを更新 ▼
                 const targetLiveId = myEntriesData[editingEntryId].liveId;
                 await updateDoc(doc(db, "lives", targetLiveId, "entries", editingEntryId), {
                     prComment: newPrComment,
@@ -247,7 +245,6 @@
             const historyContainer = document.getElementById('history-container');
             
             try {
-                // ▼ 修正: collectionGroup を使って全ライブのサブコレクションを串刺し検索 ▼
                 const [snapMyBands, snapAllEntries, snapLives] = await Promise.all([
                     getDocs(query(collection(db, "bands"), where("memberIds", "array-contains", currentUserId))),
                     getDocs(collectionGroup(db, "entries")), 
@@ -275,7 +272,6 @@
                     const isPerformer = Array.isArray(entry.performerIds) && entry.performerIds.includes(currentUserId);
                     const isMyBand = myBandIds.has(entry.bandId);
                     
-                    // ▼ 変更点：特権ユーザーならすべて表示、一般ユーザーなら自分のバンドのみ
                     const isPrivileged = ['sysadmin', 'adminadmin', 'useruser', 'admin'].includes(currentUserRole);
                     if (!isPrivileged && !isPerformer && !isMyBand) return;
 
@@ -361,7 +357,6 @@
 
             } catch (error) {
                 console.error("データ取得エラー:", error);
-                // ▼ 最初の1回だけ、ここでインデックス作成エラーがコンソールに出ます ▼
                 if (error.message.includes("requires an index")) {
                     console.warn("インデックス作成用のリンクが発行されました。コンソールのエラーリンクをクリックして作成してください。");
                 }
@@ -377,7 +372,6 @@
             const prCommentText = data.prComment ? data.prComment.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
             const setlistText = data.setlist ? data.setlist.replace(/\n/g, '<br>') : '<span style="color:#aaa;">未登録（編集ボタンから追加できます）</span>';
             
-            // ▼ 変更点：特権ユーザー（useruserなど）なら、無条件で編集ボタンを表示する
             const isPrivileged = ['sysadmin', 'adminadmin', 'useruser', 'admin'].includes(currentUserRole);
             const canEdit = isPrivileged || (Array.isArray(data.performerIds) && data.performerIds.includes(currentUserId));
 
@@ -403,8 +397,12 @@
                 </div>
             `;
             
-            html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>🎤 機材・セッティング</strong></p><ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
+            // ▼▼▼ 修正：予定時間・曲数を追加 ▼▼▼
+            html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>🎤 演奏予定・機材</strong></p><ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
+            html += `<li><strong>予定時間:</strong> ${data.playTime ? data.playTime + ' 分' : '未設定'}</li>`;
+            html += `<li><strong>曲数:</strong> ${data.songCount ? data.songCount + ' 曲' : '未設定'}</li>`;
             html += `<li><strong>マイク:</strong> ${data.micCount || 0} 本</li><li><strong>キーボード:</strong> ${data.keyboardType || '使用しない'}</li><li><strong>備考:</strong><br>${data.entryNotes ? data.entryNotes.replace(/\n/g, '<br>') : 'なし'}</li></ul>`;
+            // ▲▲▲ 修正ここまで ▲▲▲
             
             html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px; margin-top: 15px;"><strong>【演奏メンバー構成】</strong></p><ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
             
