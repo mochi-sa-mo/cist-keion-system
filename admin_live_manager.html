@@ -562,7 +562,6 @@
             container.innerHTML = '<p style="text-align: center;">データを取得中...</p>';
 
             try {
-                // ▼ 修正: サブコレクションから取得 ▼
                 const snap = await getDocs(collection(db, "lives", currentLiveId, "entries"));
                 entriesData = []; container.innerHTML = '';
                 snap.forEach(d => {
@@ -583,13 +582,17 @@
                     const card = document.createElement('div');
                     card.className = `entry-card ${cardClass}`;
 
+                    // ▼▼▼ 修正：予定時間・曲数を追加 ▼▼▼
                     let equipmentHtml = `
                         <div class="equipment-info">
+                            <strong>⏱️ 予定時間:</strong> ${entry.playTime ? entry.playTime + ' 分' : '未設定'} 
+                            <strong>🎵 曲数:</strong> ${entry.songCount ? entry.songCount + ' 曲' : '未設定'}<br>
                             <strong>🎤 マイク:</strong> ${entry.micCount || 0} 本 
                             <strong>🎹 キーボード:</strong> ${entry.keyboardType || '使用しない'} <br>
                             <strong>📝 備考:</strong> ${entry.entryNotes ? entry.entryNotes.replace(/\n/g, '<br>') : 'なし'}
                         </div>
                     `;
+                    // ▲▲▲ 修正ここまで ▲▲▲
 
                     let memberHtml = "";
                     
@@ -647,7 +650,6 @@
                             btn.disabled = true;
                             btn.textContent = '更新中...';
                             try {
-                                // ▼ 修正: サブコレクション内のドキュメントを更新 ▼
                                 await updateDoc(doc(db, "lives", currentLiveId, "entries", entry.id), { sheetSubmitted: !isSubmitted });
                                 await loadEntries(); 
                             } catch (error) {
@@ -839,7 +841,6 @@
                     if (action === 'approve') newStatus = 'approved';
                     if (action === 'reject') newStatus = 'rejected';
 
-                    // ▼ 修正: サブコレクション内のドキュメントを更新 ▼
                     await updateDoc(doc(db, "lives", currentLiveId, "entries", targetEntryId), { status: newStatus });
                     
                     await loadEntries(); 
