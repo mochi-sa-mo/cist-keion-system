@@ -108,9 +108,33 @@
                     <button type="button" class="btn-add" id="btn-add-member">＋ サポートメンバーを追加</button>
                 </div>
 
+                <!-- ▼▼▼ 修正：演奏予定・機材セクションの追加 ▼▼▼ -->
                 <div style="background: #fff3e0; padding: 15px; border-radius: 8px; border: 1px solid #ffb300; margin-top: 25px;">
-                    <h3 style="margin-top: 0; font-size: 1em; color: #e65100; border-bottom: 1px dashed #ffb300; padding-bottom: 5px;">🎤 機材・セッティング情報</h3>
+                    <h3 style="margin-top: 0; font-size: 1em; color: #e65100; border-bottom: 1px dashed #ffb300; padding-bottom: 5px;">🎤 演奏予定・機材情報</h3>
                     
+                    <div class="form-group">
+                        <label for="play-time">予定時間</label>
+                        <select id="play-time" required>
+                            <option value="">選択してください</option>
+                            <option value="10">10分</option>
+                            <option value="15">15分</option>
+                            <option value="20">20分</option>
+                            <option value="25">25分</option>
+                            <option value="30">30分</option>
+                            <option value="35">35分</option>
+                            <option value="40">40分</option>
+                            <option value="45">45分</option>
+                            <option value="50">50分</option>
+                            <option value="55">55分</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="song-count">曲数</label>
+                        <input type="number" id="song-count" min="1" max="20" placeholder="例: 4" required>
+                        <div style="font-size: 0.8em; color: #666; margin-top: 4px;">※予想される上限の曲数を入力してください（整数のみ）</div>
+                    </div>
+
                     <div class="form-group">
                         <label for="mic-count">使用するマイクの本数</label>
                         <input type="number" id="mic-count" min="0" max="10" value="0" required>
@@ -131,6 +155,7 @@
                         <textarea id="entry-notes" placeholder="立ち位置の希望、持参アンプの有無など"></textarea>
                     </div>
                 </div>
+                <!-- ▲▲▲ 修正：ここまで ▲▲▲ -->
             </div>
 
             <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -173,7 +198,6 @@
     <script type="module">
         import { db, auth } from "./firebase.js";
         import { setupHeader } from "./Component.js";
-        // ▼ 追加: collectionGroup をインポート ▼
         import { collection, collectionGroup, getDocs, query, where, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
@@ -271,7 +295,6 @@
             const bandIds = Object.keys(userBands);
 
             try {
-                // ▼ 修正: サブコレクションからエントリー状況を取得 ▼
                 const q = collection(db, "lives", liveId, "entries");
                 const snap = await getDocs(q);
                 
@@ -381,7 +404,6 @@
         async function loadMyEntries() {
             const myEntriesList = document.getElementById('my-entries-list');
             try {
-                // ▼ 修正: collectionGroup を使って全ライブのサブコレクションを串刺し検索 ▼
                 let entriesQuery;
                 if (currentUserRole === 'useruser' || currentUserRole === 'admin' || currentUserRole === 'adminadmin' || currentUserRole === 'sysadmin') {
                     entriesQuery = collectionGroup(db, "entries");
@@ -459,7 +481,6 @@
 
             } catch (error) {
                 console.error("出演予定取得エラー:", error);
-                // ▼ 最初の1回だけ、ここでインデックス作成エラーがコンソールに出ます ▼
                 if (error.message.includes("requires an index")) {
                     console.warn("インデックス作成用のリンクが発行されました。コンソールのエラーリンクをクリックして作成してください。");
                 }
@@ -494,8 +515,11 @@
             let html = `<p style="margin-bottom: 5px;"><strong>🎵 ライブ:</strong> ${data.liveName}</p>`;
             html += `<p style="margin-bottom: 15px;"><strong>🎸 バンド:</strong> ${data.bandName}</p>`;
             
-            html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px;"><strong>🎤 機材・セッティング</strong></p>`;
+            // ▼ 修正: モーダル詳細への新しい項目の反映 ▼
+            html += `<p style="margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 4px;"><strong>🎤 演奏予定・機材</strong></p>`;
             html += `<ul style="margin-top: 5px; padding-left: 20px; font-size: 0.9em;">`;
+            html += `<li><strong>予定時間:</strong> ${data.playTime ? data.playTime + ' 分' : '未設定'}</li>`;
+            html += `<li><strong>曲数:</strong> ${data.songCount ? data.songCount + ' 曲' : '未設定'}</li>`;
             html += `<li><strong>マイク:</strong> ${data.micCount || 0} 本</li>`;
             html += `<li><strong>キーボード:</strong> ${data.keyboardType || '使用しない'}</li>`;
             html += `<li><strong>備考:</strong><br>${data.entryNotes ? data.entryNotes.replace(/\n/g, '<br>') : 'なし'}</li>`;
@@ -529,6 +553,9 @@
             await updateBandSelectOptions(data.liveId, data.bandId);
             document.getElementById('band-select').value = data.bandId;
             
+            // ▼ 修正: 編集モード起動時に新しい項目をフォームへ反映 ▼
+            document.getElementById('play-time').value = data.playTime || '';
+            document.getElementById('song-count').value = data.songCount || '';
             document.getElementById('mic-count').value = data.micCount || 0;
             document.getElementById('keyboard-type').value = data.keyboardType || '使用しない';
             document.getElementById('entry-notes').value = data.entryNotes || '';
@@ -612,6 +639,9 @@
             const liveName = liveSelect.options[liveSelect.selectedIndex].text;
             const bandName = bandSelect.options[bandSelect.selectedIndex].text;
 
+            // ▼ 修正: フォーム送信時に新しい項目を取得 ▼
+            const playTime = document.getElementById('play-time').value;
+            const songCount = parseInt(document.getElementById('song-count').value, 10);
             const micCount = parseInt(document.getElementById('mic-count').value, 10);
             const keyboardType = document.getElementById('keyboard-type').value;
             const entryNotes = document.getElementById('entry-notes').value.trim();
@@ -670,6 +700,9 @@
                 liveId: liveId, liveName: liveName,
                 bandId: bandId, bandName: bandName,
                 performers: performers, performerIds: uniqueIds,
+                // ▼ 修正: オブジェクトに新しい項目を追加 ▼
+                playTime: playTime,
+                songCount: songCount,
                 micCount: micCount,
                 keyboardType: keyboardType,
                 entryNotes: entryNotes,
@@ -683,7 +716,10 @@
             let confirmHtml = `<div style="margin-bottom: 10px;"><strong>【ライブ】</strong><br>${liveName}</div>`;
             confirmHtml += `<div style="margin-bottom: 10px;"><strong>【バンド】</strong><br>${bandName}</div>`;
             
+            // ▼ 修正: 確認モーダルに新しい項目を追記 ▼
             confirmHtml += `<div style="margin-bottom: 10px; background:#f9f9f9; padding:5px; border-radius:4px; font-size:0.9em;">`;
+            confirmHtml += `<strong>⏱️ 予定時間:</strong> ${playTime} 分<br>`;
+            confirmHtml += `<strong>🎵 曲数:</strong> ${songCount} 曲<br>`;
             confirmHtml += `<strong>🎤 マイク:</strong> ${micCount} 本<br>`;
             confirmHtml += `<strong>🎹 キーボード:</strong> ${keyboardType}<br>`;
             confirmHtml += `<strong>📝 備考:</strong> ${entryNotes ? entryNotes.replace(/\n/g, '<br>') : 'なし'}`;
@@ -720,7 +756,6 @@
                 try {
                     const entryToDelete = myEntriesData[pendingDeleteId]; 
                     
-                    // ▼ 修正: サブコレクション内のドキュメントを削除 ▼
                     await deleteDoc(doc(db, "lives", entryToDelete.liveId, "entries", pendingDeleteId));
                     
                     await addDoc(collection(db, "logs"), {
@@ -757,7 +792,6 @@
                 try {
                     if (pendingAction === 'update') {
                         pendingEntryData.updatedAt = serverTimestamp();
-                        // ▼ 修正: サブコレクション内のドキュメントを更新 ▼
                         await updateDoc(doc(db, "lives", pendingEntryData.liveId, "entries", editingEntryId), pendingEntryData);
                         
                         await addDoc(collection(db, "logs"), {
@@ -775,7 +809,6 @@
                     } else {
                         pendingEntryData.enteredBy = currentUserId;
                         pendingEntryData.createdAt = serverTimestamp();
-                        // ▼ 修正: サブコレクションにドキュメントを新規追加 ▼
                         await addDoc(collection(db, "lives", pendingEntryData.liveId, "entries"), pendingEntryData);
 
                         await addDoc(collection(db, "logs"), {
