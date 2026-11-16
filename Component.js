@@ -126,12 +126,12 @@ export function setupHeader(title, type = 'back') {
             // 管理者用メニュー
             menuItems = `
                 <li class="menu-category">管理者メニュー</li>
-                <li><a href="admin_live_manager.html" style="color: #d32f2f;">ライブ審査・管理</a></li>
-                <li><a href="admin_timetable.html" style="color: #00838f;">当日タイムテーブル管理</a></li>
-                <li><a href="admin_fee_collection.html" style="color: #0d47a1;">出演費集金状況管理</a></li>
-                <li><a href="admin_rsvp_manager.html" style="color: #2e7d32;">打ち上げ参加状況管理</a></li>
-                <li><a href="admin_rsvp_pay.html" style="color: #1976d2;">打ち上げ集金状況管理</a></li>
-                <li><a href="admin_board.html" id="nav-admin-board-link" style="color: #f57c00; display: flex; align-items: center;"><span>掲示板の審査・管理</span></a></li>
+                <li><a href="admin_live_manager.html" style="color: #000000;">ライブ審査・管理</a></li>
+                <li><a href="admin_timetable.html" style="color: #000000;">当日タイムテーブル管理</a></li>
+                <li><a href="admin_fee_collection.html" style="color: #000000;">出演費集金状況管理</a></li>
+                <li><a href="admin_rsvp_manager.html" style="color: #000000;">打ち上げ参加状況管理</a></li>
+                <li><a href="admin_rsvp_pay.html" style="color: #000000;">打ち上げ集金状況管理</a></li>
+                <li><a href="admin_board.html" id="nav-admin-board-link" style="color: #000000; display: flex; align-items: center;"><span>掲示板の審査・管理</span></a></li>
             `;
         } else {
             // 一般部員用メニュー
@@ -141,14 +141,14 @@ export function setupHeader(title, type = 'back') {
                 <li><a href="yoyaku.html" style="color: #1976d2;">次週の予約</a></li>
 
                 <li class="menu-category">バンド管理</li>
-                <li><a href="band_register.html" style="color: #f57c00;">新規バンドを登録する</a></li>
-                <li><a href="my_bands.html" style="color: #e65100;">所属バンドを確認する</a></li>
+                <li><a href="band_register.html" style="color: #000000;">新規バンドを登録する</a></li>
+                <li><a href="my_bands.html" style="color: #000000;">所属バンドを確認する</a></li>
 
                 <li class="menu-category">ライブ・掲示板</li>
-                <li><a href="live_entry.html" style="color: #d32f2f;">ライブエントリーをする</a></li>
-                <li><a href="entry_status.html" style="color: #c62828;">審査状況・履歴を確認する</a></li>
-                <li><a href="rsvp.html" style="color: #388e3c;">打ち上げの回答をする</a></li>
-                <li><a href="board.html" id="nav-board-link" style="color: #0097a7; display: flex; align-items: center;"><span>掲示板へ</span></a></li>
+                <li><a href="live_entry.html" style="color: #000000;">ライブエントリーをする</a></li>
+                <li><a href="entry_status.html" style="color: #000000;">審査状況・履歴を確認する</a></li>
+                <li><a href="rsvp.html" style="color: #000000;">打ち上げの回答をする</a></li>
+                <li><a href="board.html" id="nav-board-link" style="color: #000000; display: flex; align-items: center;"><span>掲示板へ</span></a></li>
             `;
         }
 
@@ -157,7 +157,7 @@ export function setupHeader(title, type = 'back') {
                 <ul>
                     ${menuItems}
                     <li class="menu-category">アカウント</li>
-                    <li><a href="settings.html" style="color: #333;">パスワードの変更</a></li>
+                    <li><a href="settings.html" style="color: #000000;">パスワードの変更</a></li>
                     <li><a href="support.html" style="color: #4caf50;">サポート・お問い合わせ</a></li>
                     <li><a id="btn-menu-logout" style="color: #d0021b; cursor: pointer;">ログアウト</a></li>
                 </ul>
